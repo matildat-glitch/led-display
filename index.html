@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LED 動態效果編輯器</title>
+    <title>LED Animation Editor</title>
     <style>
         :root {
             --bg-color: #0b0b0b;
@@ -186,33 +186,33 @@
 
 <div class="app-container">
     <div class="header">
-        <h1 id="view-title">編輯模式 (Editor)</h1>
-        <button id="btn-toggle-view" class="btn-save">切換至預覽 (Save & Preview)</button>
+        <h1 id="view-title">Edit Mode</h1>
+        <button id="btn-toggle-view" class="btn-save">Switch to Preview (Save & Preview)</button>
     </div>
 
     <div id="main-display" class="display-board anchor-right"></div>
 
     <div id="editor-controls" class="controls">
         <div class="control-group">
-            <button id="btn-clear" style="background:#555; color:white;">清除畫板</button>
+            <button id="btn-clear" style="background:#555; color:white;">Clear Canvas</button>
         </div>
         <div class="control-group">
-            <label>停留秒數:</label>
+            <label>Duration:</label>
             <input type="number" id="input-duration" value="0.5" step="0.1" min="0.1">
-            <span>秒</span>
-            <button id="btn-add-frame" class="btn-add">➕ 儲存為影格</button>
+            <span>s</span>
+            <button id="btn-add-frame" class="btn-add">➕ Save as Frame</button>
         </div>
     </div>
 
     <div id="preview-controls" class="controls hidden" style="justify-content: center; gap: 20px;">
-        <button id="btn-play-pause" class="btn-play">▶ 播放</button>
-        <button id="btn-stop" class="btn-edit">⏹ 停止</button>
+        <button id="btn-play-pause" class="btn-play">▶ Play</button>
+        <button id="btn-stop" class="btn-edit">⏹ Stop</button>
     </div>
 
     <div id="timeline-section">
-        <h3 style="margin-top: 0; font-size: 16px; color: #aaa;">時間軸 (Timeline)</h3>
+        <h3 style="margin-top: 0; font-size: 16px; color: #aaa;">Timeline</h3>
         <div id="timeline" class="timeline-container">
-            <div class="empty-timeline">尚無影格，請在上方編輯後點擊「儲存為影格」</div>
+            <div class="empty-timeline">No frames yet. Edit above and click "Save as Frame".</div>
         </div>
     </div>
 </div>
@@ -297,7 +297,7 @@
     // 渲染下方時間軸
     function renderTimeline() {
         if (frames.length === 0) {
-            timeline.innerHTML = '<div class="empty-timeline">尚無影格，請在上方編輯後點擊「儲存為影格」</div>';
+            timeline.innerHTML = '<div class="empty-timeline">No frames yet. Edit above and click "Save as Frame".</div>';
             return;
         }
         timeline.innerHTML = '';
@@ -334,15 +334,15 @@
     // 切換 編輯 / 預覽 模式
     btnToggleView.addEventListener('click', () => {
         if (frames.length === 0 && !isPreviewMode) {
-            alert("請至少儲存一個影格才能預覽！");
+            alert("Please save at least one frame before previewing.");
             return;
         }
 
         isPreviewMode = !isPreviewMode;
         if (isPreviewMode) {
             // 進入預覽
-            viewTitle.innerText = "預覽模式 (Preview)";
-            btnToggleView.innerText = "返回編輯 (Back to Edit)";
+            viewTitle.innerText = "Preview Mode";
+            btnToggleView.innerText = "Back to Edit";
             mainDisplay.classList.add('preview-mode');
             editorControls.classList.add('hidden');
             timelineSection.classList.add('hidden');
@@ -353,8 +353,8 @@
             loadFrameToDisplay(0);
         } else {
             // 返回編輯
-            viewTitle.innerText = "編輯模式 (Editor)";
-            btnToggleView.innerText = "切換至預覽 (Save & Preview)";
+            viewTitle.innerText = "Edit Mode";
+            btnToggleView.innerText = "Switch to Preview (Save & Preview)";
             mainDisplay.classList.remove('preview-mode');
             editorControls.classList.remove('hidden');
             timelineSection.classList.remove('hidden');
@@ -397,12 +397,12 @@
             // 執行暫停
             isPlaying = false;
             clearTimeout(playTimeout);
-            btnPlayPause.innerText = "▶ 播放";
+            btnPlayPause.innerText = "▶ Play";
             btnPlayPause.style.backgroundColor = "var(--primary)";
         } else {
             // 執行播放
             isPlaying = true;
-            btnPlayPause.innerText = "⏸ 暫停";
+            btnPlayPause.innerText = "⏸ Pause";
             btnPlayPause.style.backgroundColor = "#FF9800"; // 變成橘色
             playNextFrame();
         }
@@ -414,7 +414,7 @@
         isPlaying = false;
         clearTimeout(playTimeout);
         currentFrameIndex = 0;
-        btnPlayPause.innerText = "▶ 播放";
+        btnPlayPause.innerText = "▶ Play";
         btnPlayPause.style.backgroundColor = "var(--primary)";
         if(frames.length > 0) loadFrameToDisplay(0);
     }
