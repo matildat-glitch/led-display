@@ -16,7 +16,7 @@
             --digits-gap: 0px;
             --digits-overlap: -5px;
             --digits-edge-offset: 40px;
-            --digits-shift-x: -178px;
+            --digits-shift-x: 0px;
             --digits-shift-y: 0px;
         }
         body {
@@ -60,8 +60,8 @@
             overflow: hidden;
         }
         .display-board.anchor-right {
-            justify-content: flex-end;
-            padding-right: var(--digits-edge-offset);
+            justify-content: center;
+            padding-right: 40px;
         }
         .display-board.anchor-left {
             justify-content: flex-start;
@@ -205,8 +205,8 @@
     </div>
 
     <div id="preview-controls" class="controls hidden" style="justify-content: center; gap: 20px;">
-        <button id="btn-play-pause" class="btn-play">▶ Play</button>
-        <button id="btn-stop" class="btn-edit">⏹ Stop</button>
+        <button id="btn-play-pause" class="btn-play">▶</button>
+        <button id="btn-stop" class="btn-edit">⏹</button>
     </div>
 
     <div id="timeline-section">
@@ -397,12 +397,12 @@
             // 執行暫停
             isPlaying = false;
             clearTimeout(playTimeout);
-            btnPlayPause.innerText = "▶ Play";
+            btnPlayPause.innerText = "▶";
             btnPlayPause.style.backgroundColor = "var(--primary)";
         } else {
             // 執行播放
             isPlaying = true;
-            btnPlayPause.innerText = "⏸ Pause";
+            btnPlayPause.innerText = "⏸";
             btnPlayPause.style.backgroundColor = "#FF9800"; // 變成橘色
             playNextFrame();
         }
@@ -414,7 +414,7 @@
         isPlaying = false;
         clearTimeout(playTimeout);
         currentFrameIndex = 0;
-        btnPlayPause.innerText = "▶ Play";
+        btnPlayPause.innerText = "▶";
         btnPlayPause.style.backgroundColor = "var(--primary)";
         if(frames.length > 0) loadFrameToDisplay(0);
     }
