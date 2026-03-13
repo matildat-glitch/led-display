@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LED 動態效果編輯器</title>
+    <style>
+        :root {
+            --bg-color: #0b0b0b;
+            --led-on: #ffffff;
+            --led-off: #2a2a2a;
+            --primary: #4CAF50;
+            --primary-hover: #45a049;
+            --secondary: #FFB300;
+            --panel-bg-width: 500px;
+            --digits-gap: 0px;
+            --digits-overlap: -5px;
+            --digits-edge-offset: 40px;
+            --digits-shift-x: -178px;
+            --digits-shift-y: 0px;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .app-container {
+            background-color: #2c2c2c;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            width: 800px;
+            max-width: 95vw;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 15px;
+        }
+        .header h1 { margin: 0; font-size: 24px; }
+        
+        /* 顯示器區塊 */
+        .display-board {
+            background-color: var(--bg-color);
+            padding: 40px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            border: 2px solid #000;
+            position: relative;
+            overflow: hidden;
+        }
+        .display-board.anchor-right {
+            justify-content: flex-end;
+            padding-right: var(--digits-edge-offset);
+        }
+        .display-board.anchor-left {
+            justify-content: flex-start;
+            padding-left: var(--digits-edge-offset);
+        }
+        .display-board::before {
+            content: "";
+            position: absolute;
+            opacity: 0;
+            width: var(--panel-bg-width);
+            aspect-ratio: 229.61 / 113.39;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: url("./full_display.svg") center center / 100% 100% no-repeat;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .preview-mode::before { display: none; }
+        .display-board > * {
+            position: relative;
+            z-index: 1;
+        }
+        .digit {
+            position: relative;
+            width: 90px;
+            height: 205px;
+        }
+        .digits-row {
+            display: flex;
+            gap: var(--digits-gap);
+            transform: translate(var(--digits-shift-x), var(--digits-shift-y));
+        }
+        .digits-row .digit + .digit {
+            margin-left: var(--digits-overlap);
+        }
+        .segment {
+            fill: var(--led-off);
+            fill-rule: evenodd;
+            transition: fill 0.1s;
+            cursor: pointer;
+        }
+        .segment:hover { opacity: 0.8; }
+        .segment.on { fill: var(--led-on); }
+        .preview-mode .segment { cursor: default; }
+
+        /* 編輯控制列 */
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #3a3a3a;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .control-group { display: flex; align-items: center; gap: 10px; }
+        input[type="number"] {
+            width: 70px;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background: #222;
+            color: white;
+            font-size: 16px;
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .btn-add { background-color: var(--secondary); color: #000; }
+        .btn-add:hover { background-color: #ffca28; }
+        .btn-save { background-color: var(--primary); color: white; }
+        .btn-save:hover { background-color: var(--primary-hover); }
+        .btn-play { background-color: var(--primary); color: white; width: 100px; }
+        .btn-edit { background-color: #555; color: white; }
+
+        /* 時間軸區塊 */
+        .timeline-container {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            min-height: 100px;
+            display: flex;
+            gap: 15px;
+            overflow-x: auto;
+        }
+        .frame-thumb {
+            background: var(--bg-color);
+            border: 2px solid #444;
+            border-radius: 4px;
+            padding: 10px;
+            min-width: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+        .frame-thumb .digit { width: 20px; height: 35px; }
+        .frame-thumb .display-mini { display: flex; gap: 5px; margin-bottom: 5px; pointer-events: none; }
+        .frame-thumb .duration-badge {
+            background: #444; font-size: 12px; padding: 2px 6px; border-radius: 4px;
+        }
+        .frame-thumb .delete-btn {
+            position: absolute; top: -8px; right: -8px; background: red; color: white;
+            border-radius: 50%; width: 20px; height: 20px; font-size: 12px;
+            display: flex; justify-content: center; align-items: center; cursor: pointer;
+        }
+        .empty-timeline { color: #777; width: 100%; text-align: center; margin-top: 30px; }
+
+        /* 隱藏區塊用 */
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="header">
+        <h1 id="view-title">編輯模式 (Editor)</h1>
+        <button id="btn-toggle-view" class="btn-save">切換至預覽 (Save & Preview)</button>
+    </div>
+
+    <div id="main-display" class="display-board anchor-right"></div>
+
+    <div id="editor-controls" class="controls">
+        <div class="control-group">
+            <button id="btn-clear" style="background:#555; color:white;">清除畫板</button>
+        </div>
+        <div class="control-group">
+            <label>停留秒數:</label>
+            <input type="number" id="input-duration" value="0.5" step="0.1" min="0.1">
+            <span>秒</span>
+            <button id="btn-add-frame" class="btn-add">➕ 儲存為影格</button>
+        </div>
+    </div>
+
+    <div id="preview-controls" class="controls hidden" style="justify-content: center; gap: 20px;">
+        <button id="btn-play-pause" class="btn-play">▶ 播放</button>
+        <button id="btn-stop" class="btn-edit">⏹ 停止</button>
+    </div>
+
+    <div id="timeline-section">
+        <h3 style="margin-top: 0; font-size: 16px; color: #aaa;">時間軸 (Timeline)</h3>
+        <div id="timeline" class="timeline-container">
+            <div class="empty-timeline">尚無影格，請在上方編輯後點擊「儲存為影格」</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 定義 7 段顯示器的 SVG 路徑 (以 A-G 順序排列)
+    // A:上, B:右上, C:右下, D:下, E:左下, F:左上, G:中
+    const segmentPaths = [
+        "M25.81,7.69l5.66-5.98c-1.15-1.11-2.63-1.72-4.16-1.72H8.46c-1.46,0-2.87.55-3.99,1.56l5.42,6.13h15.92Z", // A
+        "M29.01,45.94l-3.39-3.83.89-33.62,5.66-5.98c.97,1.29,1.48,2.93,1.43,4.6l-.93,34.97-3.66,3.86Z", // B
+        "M32.37,51.33l-3.39-3.83-3.66,3.86-.89,33.62,5.42,6.13c.96-1.19,1.52-2.71,1.57-4.3l.95-35.47Z", // C
+        "M2.13,91.71l5.66-5.98h15.92l5.42,6.13c-1.12,1.01-2.54,1.56-3.99,1.56H6.29c-1.53,0-3.01-.61-4.16-1.72", // D
+        "M4.59,47.49l-3.66,3.86L0,86.32c-.05,1.67.45,3.31,1.43,4.6l5.66-5.98.89-33.62-3.39-3.83Z", // E
+        "M4.62,45.94l-3.39-3.83L2.17,6.63c.05-1.59.6-3.11,1.57-4.3l5.42,6.13-.89,33.62-3.66,3.86Z", // F
+        "M24.62,50.56L28.28,46.7l-3.38-3.83H8.97l-3.65,3.86,3.38,3.83h15.92Z"  // G
+    ];
+
+    // 系統狀態
+    let currentSegments = Array(4).fill().map(() => Array(7).fill(false)); // 當前畫板狀態 4個數字 x 7個段碼
+    let frames = []; // 儲存的影格
+    let isPreviewMode = false;
+    let isPlaying = false;
+    let playTimeout = null;
+    let currentFrameIndex = 0;
+
+    // DOM 元素
+    const mainDisplay = document.getElementById('main-display');
+    const timeline = document.getElementById('timeline');
+    const viewTitle = document.getElementById('view-title');
+    const btnToggleView = document.getElementById('btn-toggle-view');
+    const editorControls = document.getElementById('editor-controls');
+    const previewControls = document.getElementById('preview-controls');
+    const timelineSection = document.getElementById('timeline-section');
+    const btnPlayPause = document.getElementById('btn-play-pause');
+
+    // 生成單個數字的 SVG HTML
+    function createDigitHTML(digitIndex, segmentsState, isMini = false) {
+        let svgContent = '';
+        segmentPaths.forEach((path, segIndex) => {
+            const isOn = segmentsState[segIndex] ? 'on' : '';
+            const onClickHandler = isMini ? '' : `onclick="toggleSegment(${digitIndex}, ${segIndex})"`;
+            svgContent += `<path d="${path}" class="segment ${isOn}" data-digit="${digitIndex}" data-seg="${segIndex}" ${onClickHandler}></path>`;
+        });
+        // 修正 viewBox 使縮放比例一致
+        return `<svg class="digit" viewBox="0 0 33.6 93.43" preserveAspectRatio="xMidYMid meet">${svgContent}</svg>`;
+    }
+
+    // 渲染主顯示器
+    function renderMainDisplay() {
+        mainDisplay.innerHTML = '';
+        const row = document.createElement('div');
+        row.className = 'digits-row';
+        currentSegments.forEach((digitState, index) => {
+            row.innerHTML += createDigitHTML(index, digitState);
+        });
+        mainDisplay.appendChild(row);
+    }
+
+    // 切換段碼亮滅 (由 SVG Path 的 onclick 觸發)
+    window.toggleSegment = function(digitIndex, segIndex) {
+        if (isPreviewMode) return;
+        currentSegments[digitIndex][segIndex] = !currentSegments[digitIndex][segIndex];
+        
+        // 僅更新被點擊的那個 path 的 class，提升效能
+        const pathElements = mainDisplay.querySelectorAll(`path[data-digit="${digitIndex}"]`);
+        if(currentSegments[digitIndex][segIndex]) {
+            pathElements[segIndex].classList.add('on');
+        } else {
+            pathElements[segIndex].classList.remove('on');
+        }
+    };
+
+    // 儲存為影格
+    document.getElementById('btn-add-frame').addEventListener('click', () => {
+        const duration = parseFloat(document.getElementById('input-duration').value) || 0.5;
+        // 深拷貝當前狀態
+        const frameData = JSON.parse(JSON.stringify(currentSegments));
+        frames.push({ segments: frameData, duration: duration });
+        renderTimeline();
+    });
+
+    // 渲染下方時間軸
+    function renderTimeline() {
+        if (frames.length === 0) {
+            timeline.innerHTML = '<div class="empty-timeline">尚無影格，請在上方編輯後點擊「儲存為影格」</div>';
+            return;
+        }
+        timeline.innerHTML = '';
+        frames.forEach((frame, index) => {
+            let miniDisplay = '<div class="display-mini">';
+            frame.segments.forEach(digitState => {
+                miniDisplay += createDigitHTML(0, digitState, true); // id 不重要
+            });
+            miniDisplay += '</div>';
+
+            const frameHtml = `
+                <div class="frame-thumb">
+                    <div class="delete-btn" onclick="deleteFrame(${index})">✕</div>
+                    ${miniDisplay}
+                    <div class="duration-badge">${frame.duration}s</div>
+                </div>
+            `;
+            timeline.innerHTML += frameHtml;
+        });
+    }
+
+    // 刪除影格
+    window.deleteFrame = function(index) {
+        frames.splice(index, 1);
+        renderTimeline();
+    };
+
+    // 清除畫板
+    document.getElementById('btn-clear').addEventListener('click', () => {
+        currentSegments = Array(4).fill().map(() => Array(7).fill(false));
+        renderMainDisplay();
+    });
+
+    // 切換 編輯 / 預覽 模式
+    btnToggleView.addEventListener('click', () => {
+        if (frames.length === 0 && !isPreviewMode) {
+            alert("請至少儲存一個影格才能預覽！");
+            return;
+        }
+
+        isPreviewMode = !isPreviewMode;
+        if (isPreviewMode) {
+            // 進入預覽
+            viewTitle.innerText = "預覽模式 (Preview)";
+            btnToggleView.innerText = "返回編輯 (Back to Edit)";
+            mainDisplay.classList.add('preview-mode');
+            editorControls.classList.add('hidden');
+            timelineSection.classList.add('hidden');
+            previewControls.classList.remove('hidden');
+            
+            // 初始化預覽狀態
+            stopPlayback();
+            loadFrameToDisplay(0);
+        } else {
+            // 返回編輯
+            viewTitle.innerText = "編輯模式 (Editor)";
+            btnToggleView.innerText = "切換至預覽 (Save & Preview)";
+            mainDisplay.classList.remove('preview-mode');
+            editorControls.classList.remove('hidden');
+            timelineSection.classList.remove('hidden');
+            previewControls.classList.add('hidden');
+            
+            stopPlayback();
+            renderMainDisplay(); // 恢復編輯中的狀態
+        }
+    });
+
+    // 預覽播放邏輯
+    function loadFrameToDisplay(index) {
+        if(!frames[index]) return;
+        mainDisplay.innerHTML = '';
+        const row = document.createElement('div');
+        row.className = 'digits-row';
+        frames[index].segments.forEach(digitState => {
+            row.innerHTML += createDigitHTML(0, digitState, true);
+        });
+        mainDisplay.appendChild(row);
+    }
+
+    function playNextFrame() {
+        if (!isPlaying) return;
+        
+        loadFrameToDisplay(currentFrameIndex);
+        const durationMs = frames[currentFrameIndex].duration * 1000;
+        
+        playTimeout = setTimeout(() => {
+            currentFrameIndex++;
+            if (currentFrameIndex >= frames.length) {
+                currentFrameIndex = 0; // 循環播放
+            }
+            playNextFrame();
+        }, durationMs);
+    }
+
+    btnPlayPause.addEventListener('click', () => {
+        if (isPlaying) {
+            // 執行暫停
+            isPlaying = false;
+            clearTimeout(playTimeout);
+            btnPlayPause.innerText = "▶ 播放";
+            btnPlayPause.style.backgroundColor = "var(--primary)";
+        } else {
+            // 執行播放
+            isPlaying = true;
+            btnPlayPause.innerText = "⏸ 暫停";
+            btnPlayPause.style.backgroundColor = "#FF9800"; // 變成橘色
+            playNextFrame();
+        }
+    });
+
+    document.getElementById('btn-stop').addEventListener('click', stopPlayback);
+
+    function stopPlayback() {
+        isPlaying = false;
+        clearTimeout(playTimeout);
+        currentFrameIndex = 0;
+        btnPlayPause.innerText = "▶ 播放";
+        btnPlayPause.style.backgroundColor = "var(--primary)";
+        if(frames.length > 0) loadFrameToDisplay(0);
+    }
+
+    // 初始渲染
+    renderMainDisplay();
+    renderTimeline();
+
+</script>
+</body>
+</html>
