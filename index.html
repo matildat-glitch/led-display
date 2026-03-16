@@ -106,7 +106,11 @@
         }
         .segment:hover { opacity: 0.8; }
         .segment.on { fill: var(--led-on); }
-        .preview-mode .segment { cursor: default; }
+        .preview-mode .segment {
+            fill: var(--bg-color);
+            cursor: default;
+        }
+        .preview-mode .segment.on { fill: var(--led-on); }
 
         /* 編輯控制列 */
         .controls {
@@ -119,6 +123,18 @@
             margin-bottom: 20px;
         }
         .control-group { display: flex; align-items: center; gap: 10px; }
+        .beeper-switch {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+        .beeper-switch input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--secondary);
+            cursor: pointer;
+        }
         input[type="number"] {
             width: 70px;
             padding: 8px;
@@ -171,6 +187,14 @@
         .frame-thumb .duration-badge {
             background: #444; font-size: 12px; padding: 2px 6px; border-radius: 4px;
         }
+        .frame-thumb .beeper-badge {
+            margin-top: 6px;
+            background: #2f2f2f;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #cfcfcf;
+        }
         .frame-thumb .delete-btn {
             position: absolute; top: -8px; right: -8px; background: red; color: white;
             border-radius: 50%; width: 20px; height: 20px; font-size: 12px;
@@ -195,6 +219,10 @@
     <div id="editor-controls" class="controls">
         <div class="control-group">
             <button id="btn-clear" style="background:#555; color:white;">Clear Canvas</button>
+            <label class="beeper-switch" for="input-beeper">
+                <input type="checkbox" id="input-beeper">
+                <span>Beeper</span>
+            </label>
         </div>
         <div class="control-group">
             <label>Duration:</label>
@@ -237,6 +265,11 @@
     let isPlaying = false;
     let playTimeout = null;
     let currentFrameIndex = 0;
+    let currentBeeperOn = false;
+    let audioContext = null;
+    let beeperOscillator = null;
+    let beeperGainNode = null;
+    let beeperStopTimeout = null;
 
     // DOM 元素
     const mainDisplay = document.getElementById('main-display');
@@ -247,6 +280,7 @@
     const previewControls = document.getElementById('preview-controls');
     const timelineSection = document.getElementById('timeline-section');
     const btnPlayPause = document.getElementById('btn-play-pause');
+    const inputBeeper = document.getElementById('input-beeper');
 
     // 生成單個數字的 SVG HTML
     function createDigitHTML(digitIndex, segmentsState, isMini = false) {
@@ -290,7 +324,7 @@
         const duration = parseFloat(document.getElementById('input-duration').value) || 0.5;
         // 深拷貝當前狀態
         const frameData = JSON.parse(JSON.stringify(currentSegments));
-        frames.push({ segments: frameData, duration: duration });
+        frames.push({ segments: frameData, duration: duration, beeper: currentBeeperOn });
         renderTimeline();
     });
 
@@ -313,6 +347,7 @@
                     <div class="delete-btn" onclick="deleteFrame(${index})">✕</div>
                     ${miniDisplay}
                     <div class="duration-badge">${frame.duration}s</div>
+                    <div class="beeper-badge">🔔 ${frame.beeper ? 'ON' : 'OFF'}</div>
                 </div>
             `;
             timeline.innerHTML += frameHtml;
@@ -328,7 +363,13 @@
     // 清除畫板
     document.getElementById('btn-clear').addEventListener('click', () => {
         currentSegments = Array(4).fill().map(() => Array(7).fill(false));
+        currentBeeperOn = false;
+        inputBeeper.checked = false;
         renderMainDisplay();
+    });
+
+    inputBeeper.addEventListener('change', (event) => {
+        currentBeeperOn = event.target.checked;
     });
 
     // 切換 編輯 / 預覽 模式
@@ -381,7 +422,9 @@
         if (!isPlaying) return;
         
         loadFrameToDisplay(currentFrameIndex);
-        const durationMs = frames[currentFrameIndex].duration * 1000;
+        const currentFrame = frames[currentFrameIndex];
+        const durationMs = currentFrame.duration * 1000;
+        playBeeperForFrame(currentFrame);
         
         playTimeout = setTimeout(() => {
             currentFrameIndex++;
@@ -397,6 +440,7 @@
             // 執行暫停
             isPlaying = false;
             clearTimeout(playTimeout);
+            stopBeeper();
             btnPlayPause.innerText = "▶";
             btnPlayPause.style.backgroundColor = "var(--primary)";
         } else {
@@ -413,10 +457,65 @@
     function stopPlayback() {
         isPlaying = false;
         clearTimeout(playTimeout);
+        stopBeeper();
         currentFrameIndex = 0;
         btnPlayPause.innerText = "▶";
         btnPlayPause.style.backgroundColor = "var(--primary)";
         if(frames.length > 0) loadFrameToDisplay(0);
+    }
+
+    function ensureAudioContext() {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return false;
+        if (!audioContext) {
+            audioContext = new AudioCtx();
+        }
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+        return true;
+    }
+
+    function stopBeeper() {
+        clearTimeout(beeperStopTimeout);
+        beeperStopTimeout = null;
+
+        if (beeperOscillator) {
+            try {
+                beeperOscillator.stop();
+            } catch (error) {
+                // Oscillator may already be stopped.
+            }
+            beeperOscillator.disconnect();
+            beeperOscillator = null;
+        }
+
+        if (beeperGainNode) {
+            beeperGainNode.disconnect();
+            beeperGainNode = null;
+        }
+    }
+
+    function playBeeperForFrame(frame) {
+        stopBeeper();
+        if (!frame || !frame.beeper) return;
+
+        if (!ensureAudioContext()) return;
+        const durationMs = Math.max(0, frame.duration * 1000);
+        if (durationMs === 0) return;
+
+        beeperOscillator = audioContext.createOscillator();
+        beeperGainNode = audioContext.createGain();
+        beeperOscillator.type = 'square';
+        beeperOscillator.frequency.value = 2000;
+        beeperGainNode.gain.value = 0.08;
+        beeperOscillator.connect(beeperGainNode);
+        beeperGainNode.connect(audioContext.destination);
+        beeperOscillator.start();
+
+        beeperStopTimeout = setTimeout(() => {
+            stopBeeper();
+        }, durationMs);
     }
 
     // 初始渲染
