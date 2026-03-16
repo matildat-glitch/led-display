@@ -314,6 +314,17 @@
             flex-direction: column;
             align-items: center;
             position: relative;
+            cursor: grab;
+            user-select: none;
+            transition: border-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+        }
+        .frame-thumb.dragging {
+            opacity: 0.45;
+            transform: scale(0.98);
+            cursor: grabbing;
+        }
+        .frame-thumb.drag-over {
+            border-color: var(--secondary);
         }
         .frame-thumb .display-mini {
             width: 150px;
@@ -483,6 +494,7 @@
     let beeperOscillator = null;
     let beeperGainNode = null;
     let beeperStopTimeout = null;
+    let dragFromIndex = null;
 
     // DOM 元素
     const mainDisplay = document.getElementById('main-display');
@@ -672,7 +684,7 @@
             `;
 
             const frameHtml = `
-                <div class="frame-thumb">
+                <div class="frame-thumb" draggable="true" data-index="${index}">
                     <div class="delete-btn" onclick="deleteFrame(${index})">✕</div>
                     ${miniDisplay}
                     <div class="duration-badge">${frame.duration}s</div>
@@ -681,6 +693,59 @@
             `;
             timeline.innerHTML += frameHtml;
         });
+
+        const thumbs = timeline.querySelectorAll('.frame-thumb');
+        thumbs.forEach((thumb) => {
+            thumb.addEventListener('dragstart', onFrameDragStart);
+            thumb.addEventListener('dragover', onFrameDragOver);
+            thumb.addEventListener('drop', onFrameDrop);
+            thumb.addEventListener('dragleave', onFrameDragLeave);
+            thumb.addEventListener('dragend', onFrameDragEnd);
+        });
+    }
+
+    function onFrameDragStart(event) {
+        if (event.target.closest('.delete-btn')) {
+            event.preventDefault();
+            return;
+        }
+        const thumb = event.currentTarget;
+        dragFromIndex = Number(thumb.dataset.index);
+        thumb.classList.add('dragging');
+        if (event.dataTransfer) {
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', String(dragFromIndex));
+        }
+    }
+
+    function onFrameDragOver(event) {
+        event.preventDefault();
+        const hoverIndex = Number(event.currentTarget.dataset.index);
+        if (hoverIndex === dragFromIndex) return;
+        event.currentTarget.classList.add('drag-over');
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    }
+
+    function onFrameDragLeave(event) {
+        event.currentTarget.classList.remove('drag-over');
+    }
+
+    function onFrameDrop(event) {
+        event.preventDefault();
+        const toIndex = Number(event.currentTarget.dataset.index);
+        event.currentTarget.classList.remove('drag-over');
+        if (dragFromIndex === null || Number.isNaN(toIndex) || dragFromIndex === toIndex) return;
+        const [movedFrame] = frames.splice(dragFromIndex, 1);
+        frames.splice(toIndex, 0, movedFrame);
+        dragFromIndex = null;
+        renderTimeline();
+    }
+
+    function onFrameDragEnd() {
+        timeline.querySelectorAll('.frame-thumb').forEach((thumb) => {
+            thumb.classList.remove('dragging', 'drag-over');
+        });
+        dragFromIndex = null;
     }
 
     // 刪除影格
