@@ -18,6 +18,66 @@
             --digits-edge-offset: 40px;
             --digits-shift-x: 0px;
             --digits-shift-y: 0px;
+            --icons-gap: 14px;
+            --icons-inner-gap: 8px;
+            --left-icons-gap: 14px;
+            --left-icons-inner-gap: 8px;
+            --icon-scale: 0.9;
+            --icon-shift-x: 0px;
+            --icon-shift-y: 25px;
+            --left-icon-scale: 1;
+            --left-icon-shift-x: 0px;
+            --left-icon-shift-y: 0px;
+            --icon-left-loading-width: 44px;
+            --icon-left-loading-height: 44px;
+            --icon-left-loading-scale: 1.2;
+            --icon-left-loading-shift-x: -7px;
+            --icon-left-loading-shift-y: -34px;
+            --loading-body-on: #f3ba3f;
+            --loading-dot-on: #ffffff;
+            --loading-body-off: #6b5522;
+            --loading-dot-off: #6a6a6a;
+            --icon-left-accucheck-width: 44px;
+            --icon-left-accucheck-height: 44px;
+            --icon-left-accucheck-scale: 1.2;
+            --icon-left-accucheck-shift-x: -7px;
+            --icon-left-accucheck-shift-y: -16px;
+            --accucheck-body-on: #69ba9f;
+            --accucheck-mark-on: #ffffff;
+            --accucheck-body-off: #2f5347;
+            --accucheck-mark-off: #6a6a6a;
+            --icon-left-lowbattery-width: 44px;
+            --icon-left-lowbattery-height: 22px;
+            --icon-left-lowbattery-scale: 1;
+            --icon-left-lowbattery-shift-x: -3px;
+            --icon-left-lowbattery-shift-y: 17px;
+            --center-icons-shift-x: 0px;
+            --center-icons-shift-y: 0px;
+            --icon-center-dot-width: 12px;
+            --icon-center-dot-height: 12px;
+            --icon-center-dot-scale: 1.1;
+            --icon-center-dot-shift-x: 82px;
+            --icon-center-dot-shift-y: 95px;
+            --icon-right-kg-width: 44px;
+            --icon-right-kg-height: 56px;
+            --icon-right-kg-scale: 0.9;
+            --icon-right-kg-shift-x: 0px;
+            --icon-right-kg-shift-y: -15px;
+            --icon-right-archive-width: 44px;
+            --icon-right-archive-height: 56px;
+            --icon-right-archive-scale: 0.8;
+            --icon-right-archive-shift-x: 1px;
+            --icon-right-archive-shift-y: -10px;
+            --icon-right-ble-width: 44px;
+            --icon-right-ble-height: 56px;
+            --icon-right-ble-scale: 0.8;
+            --icon-right-ble-shift-x: 0px;
+            --icon-right-ble-shift-y: -5px;
+            --icon-right-lb-width: 44px;
+            --icon-right-lb-height: 56px;
+            --icon-right-lb-scale: 0.8;
+            --icon-right-lb-shift-x: 0px;
+            --icon-right-lb-shift-y: -10px;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -75,7 +135,7 @@
             aspect-ratio: 229.61 / 113.39;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%);
+            transform: translate(calc(-50% - 8px), -50%); /* 往右 8px */
             background: url("./full_display.svg") center center / 100% 100% no-repeat;
             pointer-events: none;
             z-index: 0;
@@ -89,6 +149,12 @@
             position: relative;
             width: 90px;
             height: 205px;
+        }
+        .display-line {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .digits-row {
             display: flex;
@@ -111,6 +177,73 @@
             cursor: default;
         }
         .preview-mode .segment.on { fill: var(--led-on); }
+        .display-icon {
+            flex: 0 0 auto;
+            cursor: pointer;
+            transform-origin: left top;
+        }
+        .icons-left {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: var(--left-icons-inner-gap);
+            margin-right: var(--left-icons-gap);
+            transform: translate(var(--left-icon-shift-x), var(--left-icon-shift-y)) scale(var(--left-icon-scale));
+            transform-origin: right center;
+        }
+        .icons-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: var(--icons-inner-gap);
+            margin-left: var(--icons-gap);
+            transform: translate(var(--icon-shift-x), var(--icon-shift-y)) scale(var(--icon-scale));
+            transform-origin: left top;
+        }
+        .center-icons-layer {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) translate(var(--center-icons-shift-x), var(--center-icons-shift-y));
+            pointer-events: none;
+            z-index: 2;
+        }
+        .center-icons-layer .display-icon {
+            pointer-events: auto;
+        }
+        .display-icon:hover { opacity: 0.85; }
+        .icon-shape {
+            fill: var(--led-off);
+            transition: fill 0.1s;
+        }
+        .icon-shape.on { fill: var(--led-on); }
+        .preview-mode .display-icon { cursor: default; }
+        .preview-mode .display-icon:hover { opacity: 1; }
+        .preview-mode .icon-shape { fill: var(--bg-color); }
+        .preview-mode .icon-shape.on { fill: var(--led-on); }
+        .icon-left-loading .loading-body { fill: var(--loading-body-off); }
+        .icon-left-loading .loading-dot { fill: var(--loading-dot-off); }
+        .icon-left-loading .loading-body.on { fill: var(--loading-body-on); }
+        .icon-left-loading .loading-dot.on { fill: var(--loading-dot-on); }
+        .icon-left-loading:hover .loading-body,
+        .icon-left-loading:hover .loading-dot {
+            filter: brightness(0.7);
+        }
+        .icon-left-accucheck .accucheck-body { fill: var(--accucheck-body-off); }
+        .icon-left-accucheck .accucheck-mark { fill: var(--accucheck-mark-off); }
+        .icon-left-accucheck .accucheck-body.on { fill: var(--accucheck-body-on); }
+        .icon-left-accucheck .accucheck-mark.on { fill: var(--accucheck-mark-on); }
+        .icon-left-accucheck:hover .accucheck-body,
+        .icon-left-accucheck:hover .accucheck-mark {
+            filter: brightness(0.7);
+        }
+        .preview-mode .icon-left-loading .loading-body:not(.on),
+        .preview-mode .icon-left-loading .loading-dot:not(.on),
+        .preview-mode .icon-left-accucheck .accucheck-body:not(.on),
+        .preview-mode .icon-left-accucheck .accucheck-mark:not(.on) {
+            fill: var(--bg-color);
+            filter: none;
+        }
 
         /* 編輯控制列 */
         .controls {
@@ -182,8 +315,20 @@
             align-items: center;
             position: relative;
         }
-        .frame-thumb .digit { width: 20px; height: 35px; }
-        .frame-thumb .display-mini { display: flex; gap: 5px; margin-bottom: 5px; pointer-events: none; }
+        .frame-thumb .display-mini {
+            width: 150px;
+            height: 84px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 8px;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .frame-thumb .display-mini .display-line {
+            transform: scale(0.2);
+            transform-origin: center center;
+        }
         .frame-thumb .duration-badge {
             background: #444; font-size: 12px; padding: 2px 6px; border-radius: 4px;
         }
@@ -194,6 +339,14 @@
             padding: 2px 6px;
             border-radius: 4px;
             color: #cfcfcf;
+        }
+        .frame-thumb .icons-badge {
+            margin-top: 4px;
+            background: #2b2b2b;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #bdbdbd;
         }
         .frame-thumb .delete-btn {
             position: absolute; top: -8px; right: -8px; background: red; color: white;
@@ -257,6 +410,65 @@
         "M4.62,45.94l-3.39-3.83L2.17,6.63c.05-1.59.6-3.11,1.57-4.3l5.42,6.13-.89,33.62-3.66,3.86Z", // F
         "M24.62,50.56L28.28,46.7l-3.38-3.83H8.97l-3.65,3.86,3.38,3.83h15.92Z"  // G
     ];
+    const iconDefinitions = {
+        leftLoading: {
+            label: "LOADING",
+            viewBox: "0 0 25.5 25.5",
+            loadingPaths: {
+                body: "M12.75,0C5.71,0,0,5.71,0,12.75s5.71,12.75,12.75,12.75,12.75-5.71,12.75-12.75S19.8,0,12.75,0",
+                dots: [
+                    "M6.31,15.41c-1.47,0-2.66-1.19-2.66-2.66s1.19-2.66,2.66-2.66,2.66,1.19,2.66,2.66-1.19,2.66-2.66,2.66",
+                    "M12.75,15.41c-1.47,0-2.66-1.19-2.66-2.66s1.19-2.66,2.66-2.66,2.66,1.19,2.66,2.66-1.19,2.66-2.66,2.66",
+                    "M19.19,15.41c-1.47,0-2.66-1.19-2.66-2.66s1.19-2.66,2.66-2.66,2.66,1.19,2.66,2.66-1.19,2.66-2.66,2.66"
+                ]
+            }
+        },
+        leftAccucheck: {
+            label: "ACCUCHECK",
+            viewBox: "0 0 25.5 25.5",
+            accucheckPaths: {
+                body: "M12.75,0h0C5.71,0,0,5.71,0,12.75s5.71,12.75,12.75,12.75,12.75-5.71,12.75-12.75S19.8,0,12.75,0",
+                mark: "M20.24,9.32l-7.96,9.01c-.62.7-1.7.73-2.36.07l-4.58-4.59c-.64-.64-.64-1.67,0-2.3.64-.64,1.67-.64,2.3,0l3.35,3.36,6.81-7.71c.6-.67,1.63-.74,2.3-.14.67.6.74,1.62.14,2.3"
+            }
+        },
+        leftLowbattery: {
+            label: "LOWBATTERY",
+            viewBox: "0 0 20.25 9.74",
+            path: "M19.58,3.06h-.86v-1.52c0-.85-.69-1.54-1.54-1.54H1.54C.69,0,0,.69,0,1.54v6.65c0,.85.69,1.54,1.54,1.54h15.63c.85,0,1.54-.69,1.54-1.54v-1.52h.86c.37,0,.67-.3.67-.67v-2.27c0-.37-.3-.67-.67-.67M17.31,8.19c0,.07-.06.13-.13.13H3.77l1.27-6.91h12.13c.07,0,.13.06.13.13v6.65Z"
+        },
+        centerDot: {
+            label: "DOT",
+            viewBox: "0 0 5.58 5.58",
+            path: "M5.58,2.79c0-1.54-1.25-2.79-2.79-2.79S0,1.25,0,2.79s1.25,2.79,2.79,2.79,2.79-1.25,2.79-2.79"
+        },
+        rightBle: {
+            label: "BLE",
+            viewBox: "0 0 10.05 16.92",
+            path: "M3.91,15.78v-5.04c0-.14-.17-.22-.27-.12l-2.09,1.82c-.4.35-1,.3-1.35-.09-.29-.33-.25-.83.08-1.12l3.04-2.65c.08-.07.08-.18,0-.25L.27,5.69c-.33-.29-.36-.79-.08-1.12.35-.4.95-.44,1.35-.09l2.09,1.82c.11.09.27.02.27-.12V1.14c0-.97,1.15-1.5,1.88-.86l3.87,3.37c.52.45.52,1.26,0,1.71l-3.41,2.97c-.08.07-.08.18,0,.25l3.41,2.97c.52.45.52,1.26,0,1.71l-3.87,3.37c-.73.64-1.88.12-1.88-.86M5.65,10.74v3.33c0,.14.17.22.27.12l1.91-1.66c.08-.07.08-.18,0-.25l-1.91-1.67c-.11-.09-.27-.02-.27.12M5.65,2.85v3.33c0,.14.17.22.27.12l1.91-1.66c.08-.07.08-.18,0-.25l-1.91-1.66c-.11-.09-.27-.02-.27.12"
+        },
+        rightArchive: {
+            label: "ARCHIVE",
+            viewBox: "0 0 13.94 17.11",
+            paths: [
+                "M11.71,17.11H2.23c-1.23,0-2.23-1-2.23-2.23V2.23C0,1,1,0,2.23,0h9.49c1.23,0,2.23,1,2.23,2.23v12.65c0,1.23-1,2.23-2.23,2.23M2.23,1.92c-.17,0-.31.14-.31.31v12.65c0,.17.14.31.31.31h9.49c.17,0,.31-.14.31-.31V2.23c0-.17-.14-.31-.31-.31H2.23Z",
+                "M10,9.51H3.94c-.53,0-.96-.43-.96-.96s.43-.96.96-.96h6.06c.53,0,.96.43.96.96s-.43.96-.96.96",
+                "M10,5.97H3.94c-.53,0-.96-.43-.96-.96s.43-.96.96-.96h6.06c.53,0,.96.43.96.96s-.43.96-.96.96",
+                "M10,13.05H3.94c-.53,0-.96-.43-.96-.96s.43-.96.96-.96h6.06c.53,0,.96.43.96.96s-.43.96-.96.96"
+            ]
+        },
+        rightKg: {
+            label: "KG",
+            viewBox: "0 0 16.97 20.17",
+            polygon: "2.28 0 2.28 8.5 5.15 4.37 7.84 4.37 4.71 8.59 8.2 15.84 5.44 15.84 3.16 10.72 2.28 11.89 2.28 15.84 0 15.84 0 0 2.28 0",
+            path: "M16.83,16.69c-.09.59-.29,1.14-.59,1.65-.3.51-.73.94-1.3,1.3-.57.35-1.33.53-2.28.53-.41,0-.82-.07-1.24-.21-.42-.14-.81-.36-1.15-.65-.35-.3-.64-.68-.87-1.14-.23-.47-.36-1.02-.39-1.67h2.26c.11.59.32,1,.62,1.23.31.23.67.34,1.07.34.64,0,1.11-.27,1.4-.8.29-.53.44-1.21.43-2.02v-1.51h-.03c-.25.61-.6,1.05-1.05,1.34-.45.29-.93.43-1.44.43-.62,0-1.15-.15-1.6-.45-.45-.3-.82-.72-1.11-1.24-.29-.52-.5-1.14-.63-1.84-.13-.7-.2-1.45-.2-2.23,0-.74.08-1.45.23-2.14.15-.69.38-1.29.68-1.82.3-.52.67-.94,1.12-1.25.44-.31.95-.46,1.53-.46.55,0,1.02.14,1.43.42.41.28.76.75,1.03,1.42h.03v-1.53h2.17v10.74c0,.46-.05.98-.14,1.58M13.71,12.87c.25-.18.45-.41.61-.71.16-.3.28-.63.36-1.01.08-.38.12-.77.12-1.19,0-.47-.03-.92-.1-1.34-.06-.42-.17-.79-.32-1.12-.15-.32-.35-.58-.59-.78-.25-.19-.56-.29-.93-.29-.32,0-.6.09-.83.27-.23.18-.42.42-.58.72-.15.3-.27.65-.34,1.04-.07.39-.1.8-.1,1.23s.03.82.09,1.23c.06.41.16.77.31,1.1.14.33.33.59.57.8.24.21.53.31.88.31.32,0,.6-.09.85-.27"
+        },
+        rightLb: {
+            label: "LB",
+            viewBox: "0 0 13.72 16.13",
+            rect: { width: "2.28", height: "15.84" },
+            path: "M7.64,0v5.77h.03c.28-.59.66-1.02,1.13-1.3.48-.27.97-.41,1.48-.41.42,0,.83.12,1.23.35.41.24.77.6,1.1,1.09.33.49.59,1.11.79,1.88.2.76.31,1.67.31,2.72s-.1,1.96-.31,2.72-.47,1.39-.79,1.87c-.33.49-.69.85-1.1,1.09-.41.24-.82.35-1.23.35-.61,0-1.15-.13-1.64-.4-.48-.27-.85-.72-1.09-1.35h-.03v1.46h-2.17V0h2.28ZM11.33,8.72c-.08-.44-.19-.84-.35-1.18-.16-.34-.36-.61-.6-.81-.24-.2-.53-.3-.87-.3s-.62.1-.87.3c-.25.2-.45.47-.61.81-.16.34-.28.73-.35,1.18-.08.44-.11.91-.11,1.4s.04.93.11,1.38c.07.44.19.84.35,1.18.16.34.36.61.61.81.24.2.53.3.87.3s.63-.1.87-.3c.24-.2.44-.47.6-.81.16-.34.28-.73.35-1.18.07-.44.11-.9.11-1.38s-.04-.95-.11-1.4"
+        }
+    };
 
     // 系統狀態
     let currentSegments = Array(4).fill().map(() => Array(7).fill(false)); // 當前畫板狀態 4個數字 x 7個段碼
@@ -266,6 +478,7 @@
     let playTimeout = null;
     let currentFrameIndex = 0;
     let currentBeeperOn = false;
+    let currentIcons = { leftLoading: false, leftAccucheck: false, leftLowbattery: false, centerDot: false, rightBle: false, rightArchive: false, rightKg: false, rightLb: false };
     let audioContext = null;
     let beeperOscillator = null;
     let beeperGainNode = null;
@@ -294,15 +507,99 @@
         return `<svg class="digit" viewBox="0 0 33.6 93.43" preserveAspectRatio="xMidYMid meet">${svgContent}</svg>`;
     }
 
+    function iconKeyToCssToken(iconKey) {
+        return iconKey.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+    }
+
+    function createIconHTML(iconKey, isOn, isMini = false) {
+        const icon = iconDefinitions[iconKey];
+        if (!icon) return '';
+        const onClass = isOn ? 'on' : '';
+        const onClickHandler = isMini ? '' : `onclick="toggleIcon('${iconKey}')"`;
+        const cssToken = iconKeyToCssToken(iconKey);
+        const iconClass = `icon-${cssToken}`;
+        const inlineStyle = [
+            `width: var(--icon-${cssToken}-width, 44px)`,
+            `height: var(--icon-${cssToken}-height, 56px)`,
+            `transform: translate(var(--icon-${cssToken}-shift-x, 0px), var(--icon-${cssToken}-shift-y, 0px)) scale(var(--icon-${cssToken}-scale, 1))`
+        ].join('; ');
+        if (icon.loadingPaths) {
+            const dotsHtml = icon.loadingPaths.dots
+                .map(pathD => `<path class="loading-dot ${onClass}" d="${pathD}"></path>`)
+                .join('');
+            return `
+                <svg class="display-icon ${iconClass}" style="${inlineStyle}" viewBox="${icon.viewBox}" preserveAspectRatio="xMidYMid meet" ${onClickHandler}>
+                    <path class="loading-body ${onClass}" d="${icon.loadingPaths.body}"></path>
+                    ${dotsHtml}
+                </svg>
+            `;
+        }
+        if (icon.accucheckPaths) {
+            return `
+                <svg class="display-icon ${iconClass}" style="${inlineStyle}" viewBox="${icon.viewBox}" preserveAspectRatio="xMidYMid meet" ${onClickHandler}>
+                    <path class="accucheck-body ${onClass}" d="${icon.accucheckPaths.body}"></path>
+                    <path class="accucheck-mark ${onClass}" d="${icon.accucheckPaths.mark}"></path>
+                </svg>
+            `;
+        }
+        const rectHtml = icon.rect ? `<rect class="icon-shape ${onClass}" width="${icon.rect.width}" height="${icon.rect.height}"></rect>` : '';
+        const polygonHtml = icon.polygon ? `<polygon class="icon-shape ${onClass}" points="${icon.polygon}"></polygon>` : '';
+        const pathsHtml = icon.paths
+            ? icon.paths.map(pathD => `<path class="icon-shape ${onClass}" d="${pathD}"></path>`).join('')
+            : `<path class="icon-shape ${onClass}" d="${icon.path}"></path>`;
+        return `
+            <svg class="display-icon ${iconClass}" style="${inlineStyle}" viewBox="${icon.viewBox}" preserveAspectRatio="xMidYMid meet" ${onClickHandler}>
+                ${rectHtml}
+                ${polygonHtml}
+                ${pathsHtml}
+            </svg>
+        `;
+    }
+
+    function createLeftIconsHTML(iconsState, isMini = false) {
+        return `
+            <div class="icons-left">
+                ${createIconHTML('leftLoading', !!iconsState.leftLoading, isMini)}
+                ${createIconHTML('leftAccucheck', !!iconsState.leftAccucheck, isMini)}
+                ${createIconHTML('leftLowbattery', !!iconsState.leftLowbattery, isMini)}
+            </div>
+        `;
+    }
+
+    function createRightIconsHTML(iconsState, isMini = false) {
+        return `
+            <div class="icons-right">
+                ${createIconHTML('rightBle', !!iconsState.rightBle, isMini)}
+                ${createIconHTML('rightArchive', !!iconsState.rightArchive, isMini)}
+                ${createIconHTML('rightKg', !!iconsState.rightKg, isMini)}
+                ${createIconHTML('rightLb', !!iconsState.rightLb, isMini)}
+            </div>
+        `;
+    }
+
+    function createCenterIconsHTML(iconsState, isMini = false) {
+        return `
+            <div class="center-icons-layer">
+                ${createIconHTML('centerDot', !!iconsState.centerDot, isMini)}
+            </div>
+        `;
+    }
+
     // 渲染主顯示器
     function renderMainDisplay() {
         mainDisplay.innerHTML = '';
+        const line = document.createElement('div');
+        line.className = 'display-line';
         const row = document.createElement('div');
         row.className = 'digits-row';
         currentSegments.forEach((digitState, index) => {
             row.innerHTML += createDigitHTML(index, digitState);
         });
-        mainDisplay.appendChild(row);
+        line.insertAdjacentHTML('beforeend', createLeftIconsHTML(currentIcons));
+        line.appendChild(row);
+        line.insertAdjacentHTML('beforeend', createCenterIconsHTML(currentIcons));
+        line.insertAdjacentHTML('beforeend', createRightIconsHTML(currentIcons));
+        mainDisplay.appendChild(line);
     }
 
     // 切換段碼亮滅 (由 SVG Path 的 onclick 觸發)
@@ -319,12 +616,24 @@
         }
     };
 
+    window.toggleIcon = function(iconKey) {
+        if (isPreviewMode) return;
+        if (!(iconKey in currentIcons)) return;
+        currentIcons[iconKey] = !currentIcons[iconKey];
+        renderMainDisplay();
+    };
+
     // 儲存為影格
     document.getElementById('btn-add-frame').addEventListener('click', () => {
         const duration = parseFloat(document.getElementById('input-duration').value) || 0.5;
         // 深拷貝當前狀態
         const frameData = JSON.parse(JSON.stringify(currentSegments));
-        frames.push({ segments: frameData, duration: duration, beeper: currentBeeperOn });
+        frames.push({
+            segments: frameData,
+            duration: duration,
+            beeper: currentBeeperOn,
+            icons: { ...currentIcons }
+        });
         renderTimeline();
     });
 
@@ -336,11 +645,31 @@
         }
         timeline.innerHTML = '';
         frames.forEach((frame, index) => {
-            let miniDisplay = '<div class="display-mini">';
+            const frameIcons = {
+                leftLoading: !!(frame.icons && frame.icons.leftLoading),
+                leftAccucheck: !!(frame.icons && frame.icons.leftAccucheck),
+                leftLowbattery: !!(frame.icons && frame.icons.leftLowbattery),
+                centerDot: !!(frame.icons && frame.icons.centerDot),
+                rightBle: !!(frame.icons && frame.icons.rightBle),
+                rightArchive: !!(frame.icons && frame.icons.rightArchive),
+                rightKg: !!(frame.icons && frame.icons.rightKg),
+                rightLb: !!(frame.icons && frame.icons.rightLb)
+            };
+            let miniDigits = '<div class="digits-row">';
             frame.segments.forEach(digitState => {
-                miniDisplay += createDigitHTML(0, digitState, true); // id 不重要
+                miniDigits += createDigitHTML(0, digitState, true); // id 不重要
             });
-            miniDisplay += '</div>';
+            miniDigits += '</div>';
+            const miniDisplay = `
+                <div class="display-mini">
+                    <div class="display-line">
+                        ${createLeftIconsHTML(frameIcons, true)}
+                        ${miniDigits}
+                        ${createCenterIconsHTML(frameIcons, true)}
+                        ${createRightIconsHTML(frameIcons, true)}
+                    </div>
+                </div>
+            `;
 
             const frameHtml = `
                 <div class="frame-thumb">
@@ -363,6 +692,7 @@
     // 清除畫板
     document.getElementById('btn-clear').addEventListener('click', () => {
         currentSegments = Array(4).fill().map(() => Array(7).fill(false));
+        currentIcons = { leftLoading: false, leftAccucheck: false, leftLowbattery: false, centerDot: false, rightBle: false, rightArchive: false, rightKg: false, rightLb: false };
         currentBeeperOn = false;
         inputBeeper.checked = false;
         renderMainDisplay();
@@ -409,13 +739,30 @@
     // 預覽播放邏輯
     function loadFrameToDisplay(index) {
         if(!frames[index]) return;
+        const frame = frames[index];
+        const frameIcons = {
+            leftLoading: !!(frame.icons && frame.icons.leftLoading),
+            leftAccucheck: !!(frame.icons && frame.icons.leftAccucheck),
+            leftLowbattery: !!(frame.icons && frame.icons.leftLowbattery),
+            centerDot: !!(frame.icons && frame.icons.centerDot),
+            rightBle: !!(frame.icons && frame.icons.rightBle),
+            rightArchive: !!(frame.icons && frame.icons.rightArchive),
+            rightKg: !!(frame.icons && frame.icons.rightKg),
+            rightLb: !!(frame.icons && frame.icons.rightLb)
+        };
         mainDisplay.innerHTML = '';
+        const line = document.createElement('div');
+        line.className = 'display-line';
         const row = document.createElement('div');
         row.className = 'digits-row';
-        frames[index].segments.forEach(digitState => {
+        frame.segments.forEach(digitState => {
             row.innerHTML += createDigitHTML(0, digitState, true);
         });
-        mainDisplay.appendChild(row);
+        line.insertAdjacentHTML('beforeend', createLeftIconsHTML(frameIcons, true));
+        line.appendChild(row);
+        line.insertAdjacentHTML('beforeend', createCenterIconsHTML(frameIcons, true));
+        line.insertAdjacentHTML('beforeend', createRightIconsHTML(frameIcons, true));
+        mainDisplay.appendChild(line);
     }
 
     function playNextFrame() {
@@ -507,7 +854,7 @@
         beeperOscillator = audioContext.createOscillator();
         beeperGainNode = audioContext.createGain();
         beeperOscillator.type = 'square';
-        beeperOscillator.frequency.value = 2000;
+        beeperOscillator.frequency.value = 3000;
         beeperGainNode.gain.value = 0.08;
         beeperOscillator.connect(beeperGainNode);
         beeperGainNode.connect(audioContext.destination);
