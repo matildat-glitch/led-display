@@ -1195,11 +1195,15 @@
 
         if (tagName === 'polygon' || tagName === 'polyline') {
             const pointsRaw = shapeElement.getAttribute('points') || '';
-            const points = pointsRaw
+            const coords = pointsRaw
                 .trim()
-                .split(/\s+/)
-                .map((pair) => pair.split(',').map((value) => Number.parseFloat(value)))
-                .filter((pair) => pair.length === 2 && Number.isFinite(pair[0]) && Number.isFinite(pair[1]));
+                .split(/[\s,]+/)
+                .map((value) => Number.parseFloat(value))
+                .filter((value) => Number.isFinite(value));
+            const points = [];
+            for (let i = 0; i + 1 < coords.length; i += 2) {
+                points.push([coords[i], coords[i + 1]]);
+            }
             if (points.length < 2) return;
             const path = new Path2D();
             path.moveTo(points[0][0], points[0][1]);
@@ -1238,15 +1242,47 @@
             if (!viewBoxAttr) continue;
             const vb = viewBoxAttr.trim().split(/\s+/).map(Number.parseFloat);
             if (vb.length !== 4 || vb.some((value) => !Number.isFinite(value))) continue;
+            const vbX = vb[0];
+            const vbY = vb[1];
             const vbWidth = vb[2];
             const vbHeight = vb[3];
             if (vbWidth <= 0 || vbHeight <= 0) continue;
-            const scaleX = rect.width / vbWidth;
-            const scaleY = rect.height / vbHeight;
+            const viewportWidth = rect.width;
+            const viewportHeight = rect.height;
+            const preserveAspectRatio = (svgElement.getAttribute('preserveAspectRatio') || 'xMidYMid meet').trim();
 
             ctx.save();
             ctx.translate(x, y);
-            ctx.scale(scaleX, scaleY);
+            ctx.beginPath();
+            ctx.rect(0, 0, viewportWidth, viewportHeight);
+            ctx.clip();
+
+            if (preserveAspectRatio === 'none') {
+                const scaleX = viewportWidth / vbWidth;
+                const scaleY = viewportHeight / vbHeight;
+                ctx.translate(-vbX * scaleX, -vbY * scaleY);
+                ctx.scale(scaleX, scaleY);
+            } else {
+                const [alignToken = 'xMidYMid', meetOrSlice = 'meet'] = preserveAspectRatio.split(/\s+/);
+                const uniformScale = meetOrSlice === 'slice'
+                    ? Math.max(viewportWidth / vbWidth, viewportHeight / vbHeight)
+                    : Math.min(viewportWidth / vbWidth, viewportHeight / vbHeight);
+
+                const renderWidth = vbWidth * uniformScale;
+                const renderHeight = vbHeight * uniformScale;
+                const extraX = viewportWidth - renderWidth;
+                const extraY = viewportHeight - renderHeight;
+
+                let alignX = 0;
+                let alignY = 0;
+                if (alignToken.startsWith('xMid')) alignX = extraX / 2;
+                else if (alignToken.startsWith('xMax')) alignX = extraX;
+                if (alignToken.endsWith('YMid')) alignY = extraY / 2;
+                else if (alignToken.endsWith('YMax')) alignY = extraY;
+
+                ctx.translate(alignX - vbX * uniformScale, alignY - vbY * uniformScale);
+                ctx.scale(uniformScale, uniformScale);
+            }
             const shapeElements = svgElement.querySelectorAll('path, rect, polygon, polyline');
             shapeElements.forEach((shapeElement) => drawSvgShapeToCanvas(ctx, shapeElement));
             ctx.restore();
