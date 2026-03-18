@@ -293,6 +293,28 @@
         .btn-save:hover { background-color: var(--primary-hover); }
         .btn-play { background-color: var(--primary); color: white; width: 100px; }
         .btn-edit { background-color: #555; color: white; }
+        .preview-controls {
+            position: relative;
+            justify-content: center;
+            gap: 0;
+            min-height: 62px;
+        }
+        .preview-center-controls {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .btn-download {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            min-width: 120px;
+        }
+        .btn-download:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
 
         /* 時間軸區塊 */
         .timeline-container {
@@ -396,9 +418,12 @@
         </div>
     </div>
 
-    <div id="preview-controls" class="controls hidden" style="justify-content: center; gap: 20px;">
-        <button id="btn-play-pause" class="btn-play">▶</button>
-        <button id="btn-stop" class="btn-edit">⏹</button>
+    <div id="preview-controls" class="controls preview-controls hidden">
+        <div class="preview-center-controls">
+            <button id="btn-play-pause" class="btn-play">▶</button>
+            <button id="btn-stop" class="btn-edit">⏹</button>
+        </div>
+        <button id="btn-download" class="btn-edit btn-download">Download</button>
     </div>
 
     <div id="timeline-section">
@@ -495,6 +520,16 @@
     let beeperGainNode = null;
     let beeperStopTimeout = null;
     let dragFromIndex = null;
+    let isExportingVideo = false;
+    const EXPORT_FRAME_RATE = 30;
+    const EXPORT_MIME_TYPES = [
+        'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+        'video/mp4;codecs=avc1',
+        'video/mp4',
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm'
+    ];
 
     // DOM 元素
     const mainDisplay = document.getElementById('main-display');
@@ -505,6 +540,7 @@
     const previewControls = document.getElementById('preview-controls');
     const timelineSection = document.getElementById('timeline-section');
     const btnPlayPause = document.getElementById('btn-play-pause');
+    const btnDownload = document.getElementById('btn-download');
     const inputBeeper = document.getElementById('input-beeper');
 
     // 生成單個數字的 SVG HTML
@@ -597,6 +633,19 @@
         `;
     }
 
+    function getFrameIcons(frame) {
+        return {
+            leftLoading: !!(frame.icons && frame.icons.leftLoading),
+            leftAccucheck: !!(frame.icons && frame.icons.leftAccucheck),
+            leftLowbattery: !!(frame.icons && frame.icons.leftLowbattery),
+            centerDot: !!(frame.icons && frame.icons.centerDot),
+            rightBle: !!(frame.icons && frame.icons.rightBle),
+            rightArchive: !!(frame.icons && frame.icons.rightArchive),
+            rightKg: !!(frame.icons && frame.icons.rightKg),
+            rightLb: !!(frame.icons && frame.icons.rightLb)
+        };
+    }
+
     // 渲染主顯示器
     function renderMainDisplay() {
         mainDisplay.innerHTML = '';
@@ -657,16 +706,7 @@
         }
         timeline.innerHTML = '';
         frames.forEach((frame, index) => {
-            const frameIcons = {
-                leftLoading: !!(frame.icons && frame.icons.leftLoading),
-                leftAccucheck: !!(frame.icons && frame.icons.leftAccucheck),
-                leftLowbattery: !!(frame.icons && frame.icons.leftLowbattery),
-                centerDot: !!(frame.icons && frame.icons.centerDot),
-                rightBle: !!(frame.icons && frame.icons.rightBle),
-                rightArchive: !!(frame.icons && frame.icons.rightArchive),
-                rightKg: !!(frame.icons && frame.icons.rightKg),
-                rightLb: !!(frame.icons && frame.icons.rightLb)
-            };
+            const frameIcons = getFrameIcons(frame);
             let miniDigits = '<div class="digits-row">';
             frame.segments.forEach(digitState => {
                 miniDigits += createDigitHTML(0, digitState, true); // id 不重要
@@ -805,16 +845,7 @@
     function loadFrameToDisplay(index) {
         if(!frames[index]) return;
         const frame = frames[index];
-        const frameIcons = {
-            leftLoading: !!(frame.icons && frame.icons.leftLoading),
-            leftAccucheck: !!(frame.icons && frame.icons.leftAccucheck),
-            leftLowbattery: !!(frame.icons && frame.icons.leftLowbattery),
-            centerDot: !!(frame.icons && frame.icons.centerDot),
-            rightBle: !!(frame.icons && frame.icons.rightBle),
-            rightArchive: !!(frame.icons && frame.icons.rightArchive),
-            rightKg: !!(frame.icons && frame.icons.rightKg),
-            rightLb: !!(frame.icons && frame.icons.rightLb)
-        };
+        const frameIcons = getFrameIcons(frame);
         mainDisplay.innerHTML = '';
         const line = document.createElement('div');
         line.className = 'display-line';
@@ -828,6 +859,296 @@
         line.insertAdjacentHTML('beforeend', createCenterIconsHTML(frameIcons, true));
         line.insertAdjacentHTML('beforeend', createRightIconsHTML(frameIcons, true));
         mainDisplay.appendChild(line);
+    }
+
+    function getSupportedExportMimeType() {
+        if (typeof MediaRecorder === 'undefined') return null;
+        for (const mimeType of EXPORT_MIME_TYPES) {
+            if (MediaRecorder.isTypeSupported(mimeType)) return mimeType;
+        }
+        return null;
+    }
+
+    function getFileExtensionFromMimeType(mimeType) {
+        if (!mimeType) return 'mp4';
+        if (mimeType.includes('webm')) return 'webm';
+        if (mimeType.includes('mp4')) return 'mp4';
+        return 'mp4';
+    }
+
+    function drawSvgShapeToCanvas(ctx, shapeElement) {
+        const tagName = shapeElement.tagName.toLowerCase();
+        if (tagName === 'path') {
+            const d = shapeElement.getAttribute('d');
+            if (!d) return;
+            const path = new Path2D(d);
+            const style = getComputedStyle(shapeElement);
+            const fillColor = style.fill;
+            const strokeColor = style.stroke;
+            const fillRule = style.fillRule === 'evenodd' ? 'evenodd' : 'nonzero';
+            if (fillColor && fillColor !== 'none' && fillColor !== 'rgba(0, 0, 0, 0)') {
+                ctx.fillStyle = fillColor;
+                ctx.fill(path, fillRule);
+            }
+            if (strokeColor && strokeColor !== 'none' && strokeColor !== 'rgba(0, 0, 0, 0)') {
+                ctx.strokeStyle = strokeColor;
+                const strokeWidth = Number.parseFloat(style.strokeWidth || '0');
+                if (strokeWidth > 0) ctx.lineWidth = strokeWidth;
+                ctx.stroke(path);
+            }
+            return;
+        }
+
+        if (tagName === 'rect') {
+            const style = getComputedStyle(shapeElement);
+            const x = Number.parseFloat(shapeElement.getAttribute('x') || '0');
+            const y = Number.parseFloat(shapeElement.getAttribute('y') || '0');
+            const w = Number.parseFloat(shapeElement.getAttribute('width') || '0');
+            const h = Number.parseFloat(shapeElement.getAttribute('height') || '0');
+            if (w <= 0 || h <= 0) return;
+            if (style.fill && style.fill !== 'none' && style.fill !== 'rgba(0, 0, 0, 0)') {
+                ctx.fillStyle = style.fill;
+                ctx.fillRect(x, y, w, h);
+            }
+            return;
+        }
+
+        if (tagName === 'polygon' || tagName === 'polyline') {
+            const pointsRaw = shapeElement.getAttribute('points') || '';
+            const points = pointsRaw
+                .trim()
+                .split(/\s+/)
+                .map((pair) => pair.split(',').map((value) => Number.parseFloat(value)))
+                .filter((pair) => pair.length === 2 && Number.isFinite(pair[0]) && Number.isFinite(pair[1]));
+            if (points.length < 2) return;
+            const path = new Path2D();
+            path.moveTo(points[0][0], points[0][1]);
+            for (let i = 1; i < points.length; i++) {
+                path.lineTo(points[i][0], points[i][1]);
+            }
+            if (tagName === 'polygon') path.closePath();
+            const style = getComputedStyle(shapeElement);
+            if (style.fill && style.fill !== 'none' && style.fill !== 'rgba(0, 0, 0, 0)') {
+                ctx.fillStyle = style.fill;
+                ctx.fill(path);
+            }
+            if (style.stroke && style.stroke !== 'none' && style.stroke !== 'rgba(0, 0, 0, 0)') {
+                ctx.strokeStyle = style.stroke;
+                const strokeWidth = Number.parseFloat(style.strokeWidth || '0');
+                if (strokeWidth > 0) ctx.lineWidth = strokeWidth;
+                ctx.stroke(path);
+            }
+        }
+    }
+
+    async function drawMainDisplayToCanvas(ctx, width, height) {
+        const boardRect = mainDisplay.getBoundingClientRect();
+        const boardStyle = getComputedStyle(mainDisplay);
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = boardStyle.backgroundColor || '#0b0b0b';
+        ctx.fillRect(0, 0, width, height);
+
+        const svgElements = Array.from(mainDisplay.querySelectorAll('svg'));
+        for (const svgElement of svgElements) {
+            const rect = svgElement.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0) continue;
+            const x = rect.left - boardRect.left;
+            const y = rect.top - boardRect.top;
+            const viewBoxAttr = svgElement.getAttribute('viewBox');
+            if (!viewBoxAttr) continue;
+            const vb = viewBoxAttr.trim().split(/\s+/).map(Number.parseFloat);
+            if (vb.length !== 4 || vb.some((value) => !Number.isFinite(value))) continue;
+            const vbWidth = vb[2];
+            const vbHeight = vb[3];
+            if (vbWidth <= 0 || vbHeight <= 0) continue;
+            const scaleX = rect.width / vbWidth;
+            const scaleY = rect.height / vbHeight;
+
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(scaleX, scaleY);
+            const shapeElements = svgElement.querySelectorAll('path, rect, polygon, polyline');
+            shapeElements.forEach((shapeElement) => drawSvgShapeToCanvas(ctx, shapeElement));
+            ctx.restore();
+        }
+    }
+
+    function wait(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    function waitForNextPaint() {
+        return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    }
+
+    function getFrameDurationMs(frame) {
+        return Math.max(100, Math.round((frame.duration || 0.1) * 1000));
+    }
+
+    async function createExportAudioTrack(framesToExport) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return null;
+
+        const exportAudioContext = new AudioCtx();
+        const destination = exportAudioContext.createMediaStreamDestination();
+        const masterGain = exportAudioContext.createGain();
+        masterGain.gain.value = 0.08;
+        masterGain.connect(destination);
+
+        let offsetSec = 0;
+        for (const frame of framesToExport) {
+            const frameDurationSec = getFrameDurationMs(frame) / 1000;
+            if (frame && frame.beeper) {
+                const oscillator = exportAudioContext.createOscillator();
+                const gainNode = exportAudioContext.createGain();
+                oscillator.type = 'square';
+                oscillator.frequency.value = 3000;
+                gainNode.gain.value = 1;
+                oscillator.connect(gainNode);
+                gainNode.connect(masterGain);
+
+                const startTime = exportAudioContext.currentTime + offsetSec;
+                const endTime = startTime + frameDurationSec;
+                oscillator.start(startTime);
+                oscillator.stop(endTime);
+            }
+            offsetSec += frameDurationSec;
+        }
+
+        if (exportAudioContext.state === 'suspended') {
+            await exportAudioContext.resume();
+        }
+
+        const audioTrack = destination.stream.getAudioTracks()[0] || null;
+        return {
+            track: audioTrack,
+            cleanup: async () => {
+                if (audioTrack) audioTrack.stop();
+                masterGain.disconnect();
+                destination.disconnect();
+                await exportAudioContext.close();
+            }
+        };
+    }
+
+    async function exportAnimationVideo() {
+        if (isExportingVideo) return;
+        if (frames.length === 0) {
+            alert('Please save at least one frame before downloading.');
+            return;
+        }
+
+        const mimeType = getSupportedExportMimeType();
+        if (!mimeType) {
+            alert('This browser does not support MP4 export via MediaRecorder.');
+            return;
+        }
+
+        stopPlayback();
+        isExportingVideo = true;
+        btnDownload.disabled = true;
+        const originalButtonText = btnDownload.innerText;
+        btnDownload.innerText = 'Exporting...';
+
+        const rect = mainDisplay.getBoundingClientRect();
+        const width = Math.max(1, Math.round(rect.width));
+        const height = Math.max(1, Math.round(rect.height));
+        const dpr = window.devicePixelRatio || 1;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(width * dpr));
+        canvas.height = Math.max(1, Math.round(height * dpr));
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            btnDownload.disabled = false;
+            btnDownload.innerText = originalButtonText;
+            isExportingVideo = false;
+            alert('Unable to initialize video export canvas.');
+            return;
+        }
+        ctx.scale(dpr, dpr);
+
+        const videoStream = canvas.captureStream(EXPORT_FRAME_RATE);
+        let exportAudio = null;
+        try {
+            exportAudio = await createExportAudioTrack(frames);
+        } catch (error) {
+            console.warn('Failed to create export audio track.', error);
+        }
+        const streamTracks = [...videoStream.getVideoTracks()];
+        if (exportAudio && exportAudio.track) {
+            streamTracks.push(exportAudio.track);
+        }
+        const stream = new MediaStream(streamTracks);
+        const chunks = [];
+
+        const recordingFinished = new Promise((resolve, reject) => {
+            const recorder = new MediaRecorder(stream, {
+                mimeType,
+                videoBitsPerSecond: 8_000_000
+            });
+            const resolvedMimeType = recorder.mimeType || mimeType;
+
+            recorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) chunks.push(event.data);
+            };
+            recorder.onerror = (event) => {
+                reject(event.error || new Error('Unknown MediaRecorder error.'));
+            };
+            recorder.onstop = () => {
+                resolve({
+                    blob: new Blob(chunks, { type: resolvedMimeType }),
+                    mimeType: resolvedMimeType
+                });
+            };
+
+            (async () => {
+                try {
+                    recorder.start();
+                    for (let i = 0; i < frames.length; i++) {
+                        loadFrameToDisplay(i);
+                        await waitForNextPaint();
+                        await drawMainDisplayToCanvas(ctx, width, height);
+                        const frame = frames[i];
+                        const durationMs = getFrameDurationMs(frame);
+                        await wait(durationMs);
+                    }
+                    recorder.stop();
+                } catch (error) {
+                    if (recorder.state !== 'inactive') recorder.stop();
+                    reject(error);
+                }
+            })();
+        });
+
+        try {
+            const { blob: videoBlob, mimeType: outputMimeType } = await recordingFinished;
+            const extension = getFileExtensionFromMimeType(outputMimeType);
+            const downloadUrl = URL.createObjectURL(videoBlob);
+            const downloadLink = document.createElement('a');
+            downloadLink.href = downloadUrl;
+            downloadLink.download = `animation.${extension}`;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            downloadLink.remove();
+            setTimeout(() => URL.revokeObjectURL(downloadUrl), 1500);
+            if (extension !== 'mp4') {
+                alert('Current browser exported WebM format. For MP4 export, please use Safari.');
+            }
+        } catch (error) {
+            alert(`Export failed: ${error.message}`);
+        } finally {
+            stream.getTracks().forEach((track) => track.stop());
+            if (exportAudio && exportAudio.cleanup) {
+                await exportAudio.cleanup();
+            }
+            if (frames.length > 0) {
+                loadFrameToDisplay(0);
+            }
+            btnDownload.disabled = false;
+            btnDownload.innerText = originalButtonText;
+            isExportingVideo = false;
+        }
     }
 
     function playNextFrame() {
@@ -865,6 +1186,7 @@
     });
 
     document.getElementById('btn-stop').addEventListener('click', stopPlayback);
+    btnDownload.addEventListener('click', exportAnimationVideo);
 
     function stopPlayback() {
         isPlaying = false;

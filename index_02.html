@@ -106,6 +106,11 @@
             padding-bottom: 15px;
         }
         .header h1 { margin: 0; font-size: 24px; }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
         
         /* 顯示器區塊 */
         .display-board {
@@ -291,8 +296,37 @@
         .btn-add:hover { background-color: #ffca28; }
         .btn-save { background-color: var(--primary); color: white; }
         .btn-save:hover { background-color: var(--primary-hover); }
+        .btn-new { background-color: #2f7de1; color: white; }
+        .btn-new:hover { background-color: #2768bd; }
+        .btn-compact {
+            padding: 7px 14px;
+            font-size: 14px;
+            border-radius: 5px;
+        }
         .btn-play { background-color: var(--primary); color: white; width: 100px; }
         .btn-edit { background-color: #555; color: white; }
+        .preview-controls {
+            position: relative;
+            justify-content: center;
+            gap: 0;
+            min-height: 62px;
+        }
+        .preview-center-controls {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .btn-download {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            min-width: 120px;
+        }
+        .btn-download:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
 
         /* 時間軸區塊 */
         .timeline-container {
@@ -365,6 +399,58 @@
             display: flex; justify-content: center; align-items: center; cursor: pointer;
         }
         .empty-timeline { color: #777; width: 100%; text-align: center; margin-top: 30px; }
+        .animation-card {
+            background: var(--bg-color);
+            border: 2px solid #444;
+            border-radius: 4px;
+            padding: 10px;
+            min-width: 180px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            cursor: pointer;
+            transition: border-color 0.15s ease;
+        }
+        .animation-card.active {
+            border-color: var(--secondary);
+        }
+        .animation-card .display-mini {
+            width: 150px;
+            height: 84px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 8px;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .animation-card .display-mini .display-line {
+            transform: scale(0.2);
+            transform-origin: center center;
+        }
+        .animation-card .duration-badge {
+            background: #444;
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .animation-card .delete-btn {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: red;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 1;
+        }
 
         /* 隱藏區塊用 */
         .hidden { display: none !important; }
@@ -375,7 +461,10 @@
 <div class="app-container">
     <div class="header">
         <h1 id="view-title">Edit Mode</h1>
-        <button id="btn-toggle-view" class="btn-save">Switch to Preview (Save & Preview)</button>
+        <div class="header-actions">
+            <button id="btn-new-animation" class="btn-new btn-compact hidden">＋New</button>
+            <button id="btn-toggle-view" class="btn-save">Switch to Preview (Save & Preview)</button>
+        </div>
     </div>
 
     <div id="main-display" class="display-board anchor-right"></div>
@@ -396,9 +485,19 @@
         </div>
     </div>
 
-    <div id="preview-controls" class="controls hidden" style="justify-content: center; gap: 20px;">
-        <button id="btn-play-pause" class="btn-play">▶</button>
-        <button id="btn-stop" class="btn-edit">⏹</button>
+    <div id="preview-controls" class="controls preview-controls hidden">
+        <div class="preview-center-controls">
+            <button id="btn-play-pause" class="btn-play">▶</button>
+            <button id="btn-stop" class="btn-edit">⏹</button>
+        </div>
+        <button id="btn-download" class="btn-edit btn-download">Download</button>
+    </div>
+
+    <div id="preview-animations-section" class="hidden">
+        <h3 style="margin-top: 0; font-size: 16px; color: #aaa;">Animations</h3>
+        <div id="preview-animations" class="timeline-container">
+            <div class="empty-timeline">No saved animations yet.</div>
+        </div>
     </div>
 
     <div id="timeline-section">
@@ -481,30 +580,65 @@
         }
     };
 
+    function createEmptySegments() {
+        return Array(4).fill(null).map(() => Array(7).fill(false));
+    }
+
+    function createDefaultIcons() {
+        return {
+            leftLoading: false,
+            leftAccucheck: false,
+            leftLowbattery: false,
+            centerDot: false,
+            rightBle: false,
+            rightArchive: false,
+            rightKg: false,
+            rightLb: false
+        };
+    }
+
     // 系統狀態
-    let currentSegments = Array(4).fill().map(() => Array(7).fill(false)); // 當前畫板狀態 4個數字 x 7個段碼
-    let frames = []; // 儲存的影格
+    let currentSegments = createEmptySegments(); // 當前畫板狀態 4個數字 x 7個段碼
+    let frames = []; // 目前編輯中的影格
+    let animations = []; // 儲存的動畫列表
+    let activeAnimationIndex = null; // Preview 目前選中的動畫
+    let editingAnimationIndex = null; // Edit 目前編輯的動畫
     let isPreviewMode = false;
     let isPlaying = false;
     let playTimeout = null;
     let currentFrameIndex = 0;
     let currentBeeperOn = false;
-    let currentIcons = { leftLoading: false, leftAccucheck: false, leftLowbattery: false, centerDot: false, rightBle: false, rightArchive: false, rightKg: false, rightLb: false };
+    let currentIcons = createDefaultIcons();
     let audioContext = null;
     let beeperOscillator = null;
     let beeperGainNode = null;
     let beeperStopTimeout = null;
     let dragFromIndex = null;
+    let isExportingVideo = false;
+    const EXPORT_FRAME_RATE = 30;
+    const EXPORT_MIME_TYPES = [
+        'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+        'video/mp4;codecs=avc1',
+        'video/mp4',
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm'
+    ];
 
     // DOM 元素
     const mainDisplay = document.getElementById('main-display');
     const timeline = document.getElementById('timeline');
     const viewTitle = document.getElementById('view-title');
     const btnToggleView = document.getElementById('btn-toggle-view');
+    const btnNewAnimation = document.getElementById('btn-new-animation');
     const editorControls = document.getElementById('editor-controls');
     const previewControls = document.getElementById('preview-controls');
     const timelineSection = document.getElementById('timeline-section');
+    const previewAnimationsSection = document.getElementById('preview-animations-section');
+    const previewAnimations = document.getElementById('preview-animations');
     const btnPlayPause = document.getElementById('btn-play-pause');
+    const btnStop = document.getElementById('btn-stop');
+    const btnDownload = document.getElementById('btn-download');
     const inputBeeper = document.getElementById('input-beeper');
 
     // 生成單個數字的 SVG HTML
@@ -597,6 +731,72 @@
         `;
     }
 
+    function getFrameIcons(frame) {
+        return {
+            leftLoading: !!(frame.icons && frame.icons.leftLoading),
+            leftAccucheck: !!(frame.icons && frame.icons.leftAccucheck),
+            leftLowbattery: !!(frame.icons && frame.icons.leftLowbattery),
+            centerDot: !!(frame.icons && frame.icons.centerDot),
+            rightBle: !!(frame.icons && frame.icons.rightBle),
+            rightArchive: !!(frame.icons && frame.icons.rightArchive),
+            rightKg: !!(frame.icons && frame.icons.rightKg),
+            rightLb: !!(frame.icons && frame.icons.rightLb)
+        };
+    }
+
+    function cloneFrames(sourceFrames) {
+        return JSON.parse(JSON.stringify(sourceFrames || []));
+    }
+
+    function buildMiniDisplayHtml(frame) {
+        const frameIcons = getFrameIcons(frame);
+        let miniDigits = '<div class="digits-row">';
+        frame.segments.forEach((digitState) => {
+            miniDigits += createDigitHTML(0, digitState, true);
+        });
+        miniDigits += '</div>';
+        return `
+            <div class="display-mini">
+                <div class="display-line">
+                    ${createLeftIconsHTML(frameIcons, true)}
+                    ${miniDigits}
+                    ${createCenterIconsHTML(frameIcons, true)}
+                    ${createRightIconsHTML(frameIcons, true)}
+                </div>
+            </div>
+        `;
+    }
+
+    function getAnimationDuration(animation) {
+        if (!animation || !Array.isArray(animation.frames)) return 0;
+        return animation.frames.reduce((sum, frame) => sum + (Number(frame.duration) || 0), 0);
+    }
+
+    function getActiveAnimation() {
+        if (activeAnimationIndex === null) return null;
+        return animations[activeAnimationIndex] || null;
+    }
+
+    function clearEditorCanvasOnly() {
+        currentSegments = createEmptySegments();
+        currentIcons = createDefaultIcons();
+        currentBeeperOn = false;
+        inputBeeper.checked = false;
+        renderMainDisplay();
+    }
+
+    function loadEditorStateFromFrame(frame) {
+        if (!frame) {
+            clearEditorCanvasOnly();
+            return;
+        }
+        currentSegments = JSON.parse(JSON.stringify(frame.segments));
+        currentIcons = getFrameIcons(frame);
+        currentBeeperOn = !!frame.beeper;
+        inputBeeper.checked = currentBeeperOn;
+        renderMainDisplay();
+    }
+
     // 渲染主顯示器
     function renderMainDisplay() {
         mainDisplay.innerHTML = '';
@@ -638,11 +838,10 @@
     // 儲存為影格
     document.getElementById('btn-add-frame').addEventListener('click', () => {
         const duration = parseFloat(document.getElementById('input-duration').value) || 0.5;
-        // 深拷貝當前狀態
         const frameData = JSON.parse(JSON.stringify(currentSegments));
         frames.push({
             segments: frameData,
-            duration: duration,
+            duration,
             beeper: currentBeeperOn,
             icons: { ...currentIcons }
         });
@@ -657,36 +856,10 @@
         }
         timeline.innerHTML = '';
         frames.forEach((frame, index) => {
-            const frameIcons = {
-                leftLoading: !!(frame.icons && frame.icons.leftLoading),
-                leftAccucheck: !!(frame.icons && frame.icons.leftAccucheck),
-                leftLowbattery: !!(frame.icons && frame.icons.leftLowbattery),
-                centerDot: !!(frame.icons && frame.icons.centerDot),
-                rightBle: !!(frame.icons && frame.icons.rightBle),
-                rightArchive: !!(frame.icons && frame.icons.rightArchive),
-                rightKg: !!(frame.icons && frame.icons.rightKg),
-                rightLb: !!(frame.icons && frame.icons.rightLb)
-            };
-            let miniDigits = '<div class="digits-row">';
-            frame.segments.forEach(digitState => {
-                miniDigits += createDigitHTML(0, digitState, true); // id 不重要
-            });
-            miniDigits += '</div>';
-            const miniDisplay = `
-                <div class="display-mini">
-                    <div class="display-line">
-                        ${createLeftIconsHTML(frameIcons, true)}
-                        ${miniDigits}
-                        ${createCenterIconsHTML(frameIcons, true)}
-                        ${createRightIconsHTML(frameIcons, true)}
-                    </div>
-                </div>
-            `;
-
             const frameHtml = `
                 <div class="frame-thumb" draggable="true" data-index="${index}">
                     <div class="delete-btn" onclick="deleteFrame(${index})">✕</div>
-                    ${miniDisplay}
+                    ${buildMiniDisplayHtml(frame)}
                     <div class="duration-badge">${frame.duration}s</div>
                     <div class="beeper-badge">🔔 ${frame.beeper ? 'ON' : 'OFF'}</div>
                 </div>
@@ -702,6 +875,50 @@
             thumb.addEventListener('dragleave', onFrameDragLeave);
             thumb.addEventListener('dragend', onFrameDragEnd);
         });
+    }
+
+    function updatePreviewControlState() {
+        const hasActiveFrames = Array.isArray(frames) && frames.length > 0;
+        btnPlayPause.disabled = !hasActiveFrames;
+        btnStop.disabled = !hasActiveFrames;
+        btnDownload.disabled = !hasActiveFrames || isExportingVideo;
+    }
+
+    function renderPreviewAnimations() {
+        if (animations.length === 0) {
+            previewAnimations.innerHTML = '<div class="empty-timeline">No saved animations yet.</div>';
+            updatePreviewControlState();
+            return;
+        }
+
+        previewAnimations.innerHTML = '';
+        animations.forEach((animation, index) => {
+            const firstFrame = animation.frames[0];
+            const totalDuration = getAnimationDuration(animation).toFixed(1);
+            const cardHtml = `
+                <div class="animation-card ${index === activeAnimationIndex ? 'active' : ''}" data-animation-index="${index}">
+                    <div class="delete-btn" data-animation-delete="${index}">✕</div>
+                    ${firstFrame ? buildMiniDisplayHtml(firstFrame) : '<div class="empty-timeline" style="margin-top: 10px;">Empty</div>'}
+                    <div class="duration-badge">${totalDuration}s</div>
+                </div>
+            `;
+            previewAnimations.insertAdjacentHTML('beforeend', cardHtml);
+        });
+
+        previewAnimations.querySelectorAll('.animation-card').forEach((card) => {
+            card.addEventListener('click', (event) => {
+                const deleteBtn = event.target.closest('[data-animation-delete]');
+                if (deleteBtn) {
+                    const index = Number(deleteBtn.dataset.animationDelete);
+                    if (!Number.isNaN(index)) deleteAnimation(index);
+                    event.stopPropagation();
+                    return;
+                }
+                const index = Number(card.dataset.animationIndex);
+                if (!Number.isNaN(index)) selectAnimation(index);
+            });
+        });
+        updatePreviewControlState();
     }
 
     function onFrameDragStart(event) {
@@ -754,14 +971,121 @@
         renderTimeline();
     };
 
+    function selectAnimation(index) {
+        if (!animations[index]) return;
+        stopPlayback();
+        activeAnimationIndex = index;
+        editingAnimationIndex = index;
+        frames = cloneFrames(animations[index].frames);
+        currentFrameIndex = 0;
+        if (frames.length > 0) {
+            loadFrameToDisplay(0);
+        } else {
+            mainDisplay.innerHTML = '';
+        }
+        renderPreviewAnimations();
+    }
+
+    function deleteAnimation(index) {
+        if (!animations[index]) return;
+        stopPlayback();
+        const wasActive = index === activeAnimationIndex;
+        const wasEditing = index === editingAnimationIndex;
+        animations.splice(index, 1);
+
+        if (wasEditing) editingAnimationIndex = null;
+        if (editingAnimationIndex !== null && editingAnimationIndex > index) {
+            editingAnimationIndex -= 1;
+        }
+        if (activeAnimationIndex !== null && activeAnimationIndex > index) {
+            activeAnimationIndex -= 1;
+        }
+
+        if (wasActive) {
+            if (animations.length === 0) {
+                activeAnimationIndex = null;
+                frames = [];
+                mainDisplay.innerHTML = '';
+            } else {
+                const nextIndex = Math.min(index, animations.length - 1);
+                activeAnimationIndex = nextIndex;
+                frames = cloneFrames(animations[nextIndex].frames);
+                if (frames.length > 0) loadFrameToDisplay(0);
+            }
+        }
+        renderPreviewAnimations();
+    }
+
+    function persistEditingAnimation() {
+        const storedFrames = cloneFrames(frames);
+        if (editingAnimationIndex === null) {
+            animations.push({ frames: storedFrames });
+            editingAnimationIndex = animations.length - 1;
+        } else if (animations[editingAnimationIndex]) {
+            animations[editingAnimationIndex].frames = storedFrames;
+        } else {
+            animations.push({ frames: storedFrames });
+            editingAnimationIndex = animations.length - 1;
+        }
+        activeAnimationIndex = editingAnimationIndex;
+    }
+
+    function enterPreviewMode() {
+        const activeAnimation = getActiveAnimation();
+        frames = cloneFrames(activeAnimation ? activeAnimation.frames : []);
+
+        isPreviewMode = true;
+        viewTitle.innerText = "Preview Mode";
+        btnToggleView.innerText = "Edit";
+        btnToggleView.classList.add('btn-edit', 'btn-compact');
+        btnToggleView.classList.remove('btn-save');
+        btnNewAnimation.classList.remove('hidden');
+        mainDisplay.classList.add('preview-mode');
+        editorControls.classList.add('hidden');
+        timelineSection.classList.add('hidden');
+        previewControls.classList.remove('hidden');
+        previewAnimationsSection.classList.remove('hidden');
+
+        stopPlayback();
+        if (frames.length > 0) {
+            loadFrameToDisplay(0);
+        } else {
+            mainDisplay.innerHTML = '';
+        }
+        renderPreviewAnimations();
+    }
+
+    function enterEditMode() {
+        isPreviewMode = false;
+        viewTitle.innerText = "Edit Mode";
+        btnToggleView.innerText = "Switch to Preview (Save & Preview)";
+        btnToggleView.classList.add('btn-save');
+        btnToggleView.classList.remove('btn-edit', 'btn-compact');
+        btnNewAnimation.classList.add('hidden');
+        mainDisplay.classList.remove('preview-mode');
+        editorControls.classList.remove('hidden');
+        timelineSection.classList.remove('hidden');
+        previewControls.classList.add('hidden');
+        previewAnimationsSection.classList.add('hidden');
+
+        stopPlayback();
+        renderTimeline();
+        if (frames.length > 0) {
+            loadEditorStateFromFrame(frames[0]);
+        } else {
+            clearEditorCanvasOnly();
+        }
+    }
+
+    function startNewAnimationFromPreview() {
+        stopPlayback();
+        editingAnimationIndex = null;
+        frames = [];
+        enterEditMode();
+    }
+
     // 清除畫板
-    document.getElementById('btn-clear').addEventListener('click', () => {
-        currentSegments = Array(4).fill().map(() => Array(7).fill(false));
-        currentIcons = { leftLoading: false, leftAccucheck: false, leftLowbattery: false, centerDot: false, rightBle: false, rightArchive: false, rightKg: false, rightLb: false };
-        currentBeeperOn = false;
-        inputBeeper.checked = false;
-        renderMainDisplay();
-    });
+    document.getElementById('btn-clear').addEventListener('click', clearEditorCanvasOnly);
 
     inputBeeper.addEventListener('change', (event) => {
         currentBeeperOn = event.target.checked;
@@ -769,52 +1093,33 @@
 
     // 切換 編輯 / 預覽 模式
     btnToggleView.addEventListener('click', () => {
-        if (frames.length === 0 && !isPreviewMode) {
-            alert("Please save at least one frame before previewing.");
-            return;
-        }
-
-        isPreviewMode = !isPreviewMode;
-        if (isPreviewMode) {
-            // 進入預覽
-            viewTitle.innerText = "Preview Mode";
-            btnToggleView.innerText = "Back to Edit";
-            mainDisplay.classList.add('preview-mode');
-            editorControls.classList.add('hidden');
-            timelineSection.classList.add('hidden');
-            previewControls.classList.remove('hidden');
-            
-            // 初始化預覽狀態
-            stopPlayback();
-            loadFrameToDisplay(0);
+        if (!isPreviewMode) {
+            if (frames.length === 0) {
+                alert("Please save at least one frame before previewing.");
+                return;
+            }
+            persistEditingAnimation();
+            enterPreviewMode();
         } else {
-            // 返回編輯
-            viewTitle.innerText = "Edit Mode";
-            btnToggleView.innerText = "Switch to Preview (Save & Preview)";
-            mainDisplay.classList.remove('preview-mode');
-            editorControls.classList.remove('hidden');
-            timelineSection.classList.remove('hidden');
-            previewControls.classList.add('hidden');
-            
-            stopPlayback();
-            renderMainDisplay(); // 恢復編輯中的狀態
+            const activeAnimation = getActiveAnimation();
+            if (activeAnimation) {
+                editingAnimationIndex = activeAnimationIndex;
+                frames = cloneFrames(activeAnimation.frames);
+            } else {
+                editingAnimationIndex = null;
+                frames = [];
+            }
+            enterEditMode();
         }
     });
+
+    btnNewAnimation.addEventListener('click', startNewAnimationFromPreview);
 
     // 預覽播放邏輯
     function loadFrameToDisplay(index) {
         if(!frames[index]) return;
         const frame = frames[index];
-        const frameIcons = {
-            leftLoading: !!(frame.icons && frame.icons.leftLoading),
-            leftAccucheck: !!(frame.icons && frame.icons.leftAccucheck),
-            leftLowbattery: !!(frame.icons && frame.icons.leftLowbattery),
-            centerDot: !!(frame.icons && frame.icons.centerDot),
-            rightBle: !!(frame.icons && frame.icons.rightBle),
-            rightArchive: !!(frame.icons && frame.icons.rightArchive),
-            rightKg: !!(frame.icons && frame.icons.rightKg),
-            rightLb: !!(frame.icons && frame.icons.rightLb)
-        };
+        const frameIcons = getFrameIcons(frame);
         mainDisplay.innerHTML = '';
         const line = document.createElement('div');
         line.className = 'display-line';
@@ -828,6 +1133,296 @@
         line.insertAdjacentHTML('beforeend', createCenterIconsHTML(frameIcons, true));
         line.insertAdjacentHTML('beforeend', createRightIconsHTML(frameIcons, true));
         mainDisplay.appendChild(line);
+    }
+
+    function getSupportedExportMimeType() {
+        if (typeof MediaRecorder === 'undefined') return null;
+        for (const mimeType of EXPORT_MIME_TYPES) {
+            if (MediaRecorder.isTypeSupported(mimeType)) return mimeType;
+        }
+        return null;
+    }
+
+    function getFileExtensionFromMimeType(mimeType) {
+        if (!mimeType) return 'mp4';
+        if (mimeType.includes('webm')) return 'webm';
+        if (mimeType.includes('mp4')) return 'mp4';
+        return 'mp4';
+    }
+
+    function drawSvgShapeToCanvas(ctx, shapeElement) {
+        const tagName = shapeElement.tagName.toLowerCase();
+        if (tagName === 'path') {
+            const d = shapeElement.getAttribute('d');
+            if (!d) return;
+            const path = new Path2D(d);
+            const style = getComputedStyle(shapeElement);
+            const fillColor = style.fill;
+            const strokeColor = style.stroke;
+            const fillRule = style.fillRule === 'evenodd' ? 'evenodd' : 'nonzero';
+            if (fillColor && fillColor !== 'none' && fillColor !== 'rgba(0, 0, 0, 0)') {
+                ctx.fillStyle = fillColor;
+                ctx.fill(path, fillRule);
+            }
+            if (strokeColor && strokeColor !== 'none' && strokeColor !== 'rgba(0, 0, 0, 0)') {
+                ctx.strokeStyle = strokeColor;
+                const strokeWidth = Number.parseFloat(style.strokeWidth || '0');
+                if (strokeWidth > 0) ctx.lineWidth = strokeWidth;
+                ctx.stroke(path);
+            }
+            return;
+        }
+
+        if (tagName === 'rect') {
+            const style = getComputedStyle(shapeElement);
+            const x = Number.parseFloat(shapeElement.getAttribute('x') || '0');
+            const y = Number.parseFloat(shapeElement.getAttribute('y') || '0');
+            const w = Number.parseFloat(shapeElement.getAttribute('width') || '0');
+            const h = Number.parseFloat(shapeElement.getAttribute('height') || '0');
+            if (w <= 0 || h <= 0) return;
+            if (style.fill && style.fill !== 'none' && style.fill !== 'rgba(0, 0, 0, 0)') {
+                ctx.fillStyle = style.fill;
+                ctx.fillRect(x, y, w, h);
+            }
+            return;
+        }
+
+        if (tagName === 'polygon' || tagName === 'polyline') {
+            const pointsRaw = shapeElement.getAttribute('points') || '';
+            const points = pointsRaw
+                .trim()
+                .split(/\s+/)
+                .map((pair) => pair.split(',').map((value) => Number.parseFloat(value)))
+                .filter((pair) => pair.length === 2 && Number.isFinite(pair[0]) && Number.isFinite(pair[1]));
+            if (points.length < 2) return;
+            const path = new Path2D();
+            path.moveTo(points[0][0], points[0][1]);
+            for (let i = 1; i < points.length; i++) {
+                path.lineTo(points[i][0], points[i][1]);
+            }
+            if (tagName === 'polygon') path.closePath();
+            const style = getComputedStyle(shapeElement);
+            if (style.fill && style.fill !== 'none' && style.fill !== 'rgba(0, 0, 0, 0)') {
+                ctx.fillStyle = style.fill;
+                ctx.fill(path);
+            }
+            if (style.stroke && style.stroke !== 'none' && style.stroke !== 'rgba(0, 0, 0, 0)') {
+                ctx.strokeStyle = style.stroke;
+                const strokeWidth = Number.parseFloat(style.strokeWidth || '0');
+                if (strokeWidth > 0) ctx.lineWidth = strokeWidth;
+                ctx.stroke(path);
+            }
+        }
+    }
+
+    async function drawMainDisplayToCanvas(ctx, width, height) {
+        const boardRect = mainDisplay.getBoundingClientRect();
+        const boardStyle = getComputedStyle(mainDisplay);
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = boardStyle.backgroundColor || '#0b0b0b';
+        ctx.fillRect(0, 0, width, height);
+
+        const svgElements = Array.from(mainDisplay.querySelectorAll('svg'));
+        for (const svgElement of svgElements) {
+            const rect = svgElement.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0) continue;
+            const x = rect.left - boardRect.left;
+            const y = rect.top - boardRect.top;
+            const viewBoxAttr = svgElement.getAttribute('viewBox');
+            if (!viewBoxAttr) continue;
+            const vb = viewBoxAttr.trim().split(/\s+/).map(Number.parseFloat);
+            if (vb.length !== 4 || vb.some((value) => !Number.isFinite(value))) continue;
+            const vbWidth = vb[2];
+            const vbHeight = vb[3];
+            if (vbWidth <= 0 || vbHeight <= 0) continue;
+            const scaleX = rect.width / vbWidth;
+            const scaleY = rect.height / vbHeight;
+
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(scaleX, scaleY);
+            const shapeElements = svgElement.querySelectorAll('path, rect, polygon, polyline');
+            shapeElements.forEach((shapeElement) => drawSvgShapeToCanvas(ctx, shapeElement));
+            ctx.restore();
+        }
+    }
+
+    function wait(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    function waitForNextPaint() {
+        return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    }
+
+    function getFrameDurationMs(frame) {
+        return Math.max(100, Math.round((frame.duration || 0.1) * 1000));
+    }
+
+    async function createExportAudioTrack(framesToExport) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return null;
+
+        const exportAudioContext = new AudioCtx();
+        const destination = exportAudioContext.createMediaStreamDestination();
+        const masterGain = exportAudioContext.createGain();
+        masterGain.gain.value = 0.08;
+        masterGain.connect(destination);
+
+        let offsetSec = 0;
+        for (const frame of framesToExport) {
+            const frameDurationSec = getFrameDurationMs(frame) / 1000;
+            if (frame && frame.beeper) {
+                const oscillator = exportAudioContext.createOscillator();
+                const gainNode = exportAudioContext.createGain();
+                oscillator.type = 'square';
+                oscillator.frequency.value = 3000;
+                gainNode.gain.value = 1;
+                oscillator.connect(gainNode);
+                gainNode.connect(masterGain);
+
+                const startTime = exportAudioContext.currentTime + offsetSec;
+                const endTime = startTime + frameDurationSec;
+                oscillator.start(startTime);
+                oscillator.stop(endTime);
+            }
+            offsetSec += frameDurationSec;
+        }
+
+        if (exportAudioContext.state === 'suspended') {
+            await exportAudioContext.resume();
+        }
+
+        const audioTrack = destination.stream.getAudioTracks()[0] || null;
+        return {
+            track: audioTrack,
+            cleanup: async () => {
+                if (audioTrack) audioTrack.stop();
+                masterGain.disconnect();
+                destination.disconnect();
+                await exportAudioContext.close();
+            }
+        };
+    }
+
+    async function exportAnimationVideo() {
+        if (isExportingVideo) return;
+        if (frames.length === 0) {
+            alert('Please save at least one frame before downloading.');
+            return;
+        }
+
+        const mimeType = getSupportedExportMimeType();
+        if (!mimeType) {
+            alert('This browser does not support MP4 export via MediaRecorder.');
+            return;
+        }
+
+        stopPlayback();
+        isExportingVideo = true;
+        updatePreviewControlState();
+        const originalButtonText = btnDownload.innerText;
+        btnDownload.innerText = 'Exporting...';
+
+        const rect = mainDisplay.getBoundingClientRect();
+        const width = Math.max(1, Math.round(rect.width));
+        const height = Math.max(1, Math.round(rect.height));
+        const dpr = window.devicePixelRatio || 1;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(width * dpr));
+        canvas.height = Math.max(1, Math.round(height * dpr));
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            isExportingVideo = false;
+            btnDownload.innerText = originalButtonText;
+            updatePreviewControlState();
+            alert('Unable to initialize video export canvas.');
+            return;
+        }
+        ctx.scale(dpr, dpr);
+
+        const videoStream = canvas.captureStream(EXPORT_FRAME_RATE);
+        let exportAudio = null;
+        try {
+            exportAudio = await createExportAudioTrack(frames);
+        } catch (error) {
+            console.warn('Failed to create export audio track.', error);
+        }
+        const streamTracks = [...videoStream.getVideoTracks()];
+        if (exportAudio && exportAudio.track) {
+            streamTracks.push(exportAudio.track);
+        }
+        const stream = new MediaStream(streamTracks);
+        const chunks = [];
+
+        const recordingFinished = new Promise((resolve, reject) => {
+            const recorder = new MediaRecorder(stream, {
+                mimeType,
+                videoBitsPerSecond: 8_000_000
+            });
+            const resolvedMimeType = recorder.mimeType || mimeType;
+
+            recorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) chunks.push(event.data);
+            };
+            recorder.onerror = (event) => {
+                reject(event.error || new Error('Unknown MediaRecorder error.'));
+            };
+            recorder.onstop = () => {
+                resolve({
+                    blob: new Blob(chunks, { type: resolvedMimeType }),
+                    mimeType: resolvedMimeType
+                });
+            };
+
+            (async () => {
+                try {
+                    recorder.start();
+                    for (let i = 0; i < frames.length; i++) {
+                        loadFrameToDisplay(i);
+                        await waitForNextPaint();
+                        await drawMainDisplayToCanvas(ctx, width, height);
+                        const frame = frames[i];
+                        const durationMs = getFrameDurationMs(frame);
+                        await wait(durationMs);
+                    }
+                    recorder.stop();
+                } catch (error) {
+                    if (recorder.state !== 'inactive') recorder.stop();
+                    reject(error);
+                }
+            })();
+        });
+
+        try {
+            const { blob: videoBlob, mimeType: outputMimeType } = await recordingFinished;
+            const extension = getFileExtensionFromMimeType(outputMimeType);
+            const downloadUrl = URL.createObjectURL(videoBlob);
+            const downloadLink = document.createElement('a');
+            downloadLink.href = downloadUrl;
+            downloadLink.download = `animation.${extension}`;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            downloadLink.remove();
+            setTimeout(() => URL.revokeObjectURL(downloadUrl), 1500);
+            if (extension !== 'mp4') {
+                alert('Current browser exported WebM format. For MP4 export, please use Safari.');
+            }
+        } catch (error) {
+            alert(`Export failed: ${error.message}`);
+        } finally {
+            stream.getTracks().forEach((track) => track.stop());
+            if (exportAudio && exportAudio.cleanup) {
+                await exportAudio.cleanup();
+            }
+            if (frames.length > 0) {
+                loadFrameToDisplay(0);
+            }
+            isExportingVideo = false;
+            btnDownload.innerText = originalButtonText;
+            updatePreviewControlState();
+        }
     }
 
     function playNextFrame() {
@@ -848,6 +1443,7 @@
     }
 
     btnPlayPause.addEventListener('click', () => {
+        if (frames.length === 0) return;
         if (isPlaying) {
             // 執行暫停
             isPlaying = false;
@@ -864,7 +1460,8 @@
         }
     });
 
-    document.getElementById('btn-stop').addEventListener('click', stopPlayback);
+    btnStop.addEventListener('click', stopPlayback);
+    btnDownload.addEventListener('click', exportAnimationVideo);
 
     function stopPlayback() {
         isPlaying = false;
@@ -874,6 +1471,7 @@
         btnPlayPause.innerText = "▶";
         btnPlayPause.style.backgroundColor = "var(--primary)";
         if(frames.length > 0) loadFrameToDisplay(0);
+        updatePreviewControlState();
     }
 
     function ensureAudioContext() {
@@ -933,6 +1531,7 @@
     // 初始渲染
     renderMainDisplay();
     renderTimeline();
+    updatePreviewControlState();
 
 </script>
 </body>
