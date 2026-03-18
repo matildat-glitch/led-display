@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LED Animation Editor</title>
+    <style>
+        :root {
+            --bg-color: #0b0b0b;
+            --led-on: #ffffff;
+            --led-off: #2a2a2a;
+            --primary: #4CAF50;
+            --primary-hover: #45a049;
+            --secondary: #FFB300;
+            --panel-bg-width: 500px;
+            --digits-gap: 0px;
+            --digits-overlap: -5px;
+            --digits-edge-offset: 40px;
+            --digits-shift-x: 0px;
+            --digits-shift-y: 0px;
+            --icons-gap: 14px;
+            --icons-inner-gap: 8px;
+            --left-icons-gap: 14px;
+            --left-icons-inner-gap: 8px;
+            --icon-scale: 0.9;
+            --icon-shift-x: 0px;
+            --icon-shift-y: 25px;
+            --left-icon-scale: 1;
+            --left-icon-shift-x: 0px;
+            --left-icon-shift-y: 0px;
+            --icon-left-loading-width: 44px;
+            --icon-left-loading-height: 44px;
+            --icon-left-loading-scale: 1.2;
+            --icon-left-loading-shift-x: -7px;
+            --icon-left-loading-shift-y: -34px;
+            --loading-body-on: #f3ba3f;
+            --loading-dot-on: #ffffff;
+            --loading-body-off: #6b5522;
+            --loading-dot-off: #6a6a6a;
+            --icon-left-accucheck-width: 44px;
+            --icon-left-accucheck-height: 44px;
+            --icon-left-accucheck-scale: 1.2;
+            --icon-left-accucheck-shift-x: -7px;
+            --icon-left-accucheck-shift-y: -16px;
+            --accucheck-body-on: #69ba9f;
+            --accucheck-mark-on: #ffffff;
+            --accucheck-body-off: #2f5347;
+            --accucheck-mark-off: #6a6a6a;
+            --icon-left-lowbattery-width: 44px;
+            --icon-left-lowbattery-height: 22px;
+            --icon-left-lowbattery-scale: 1;
+            --icon-left-lowbattery-shift-x: -3px;
+            --icon-left-lowbattery-shift-y: 17px;
+            --center-icons-shift-x: 0px;
+            --center-icons-shift-y: 0px;
+            --icon-center-dot-width: 12px;
+            --icon-center-dot-height: 12px;
+            --icon-center-dot-scale: 1.1;
+            --icon-center-dot-shift-x: 82px;
+            --icon-center-dot-shift-y: 95px;
+            --icon-right-kg-width: 44px;
+            --icon-right-kg-height: 56px;
+            --icon-right-kg-scale: 0.9;
+            --icon-right-kg-shift-x: 0px;
+            --icon-right-kg-shift-y: -15px;
+            --icon-right-archive-width: 44px;
+            --icon-right-archive-height: 56px;
+            --icon-right-archive-scale: 0.8;
+            --icon-right-archive-shift-x: 1px;
+            --icon-right-archive-shift-y: -10px;
+            --icon-right-ble-width: 44px;
+            --icon-right-ble-height: 56px;
+            --icon-right-ble-scale: 0.8;
+            --icon-right-ble-shift-x: 0px;
+            --icon-right-ble-shift-y: -5px;
+            --icon-right-lb-width: 44px;
+            --icon-right-lb-height: 56px;
+            --icon-right-lb-scale: 0.8;
+            --icon-right-lb-shift-x: 0px;
+            --icon-right-lb-shift-y: -10px;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .app-container {
+            background-color: #2c2c2c;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            width: 800px;
+            max-width: 95vw;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 15px;
+        }
+        .header h1 { margin: 0; font-size: 24px; }
+        
+        /* 顯示器區塊 */
+        .display-board {
+            background-color: var(--bg-color);
+            padding: 40px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            border: 2px solid #000;
+            position: relative;
+            overflow: hidden;
+        }
+        .display-board.anchor-right {
+            justify-content: center;
+            padding-right: 40px;
+        }
+        .display-board.anchor-left {
+            justify-content: flex-start;
+            padding-left: var(--digits-edge-offset);
+        }
+        .display-board::before {
+            content: "";
+            position: absolute;
+            opacity: 0;
+            width: var(--panel-bg-width);
+            aspect-ratio: 229.61 / 113.39;
+            top: 50%;
+            left: 50%;
+            transform: translate(calc(-50% - 8px), -50%); /* 往右 8px */
+            background: url("./full_display.svg") center center / 100% 100% no-repeat;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .preview-mode::before { display: none; }
+        .display-board > * {
+            position: relative;
+            z-index: 1;
+        }
+        .digit {
+            position: relative;
+            width: 90px;
+            height: 205px;
+        }
+        .display-line {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .digits-row {
+            display: flex;
+            gap: var(--digits-gap);
+            transform: translate(var(--digits-shift-x), var(--digits-shift-y));
+        }
+        .digits-row .digit + .digit {
+            margin-left: var(--digits-overlap);
+        }
+        .segment {
+            fill: var(--led-off);
+            fill-rule: evenodd;
+            transition: fill 0.1s;
+            cursor: pointer;
+        }
+        .segment:hover { opacity: 0.8; }
+        .segment.on { fill: var(--led-on); }
+        .preview-mode .segment {
+            fill: var(--bg-color);
+            cursor: default;
+        }
+        .preview-mode .segment.on { fill: var(--led-on); }
+        .display-icon {
+            flex: 0 0 auto;
+            cursor: pointer;
+            transform-origin: left top;
+        }
+        .icons-left {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: var(--left-icons-inner-gap);
+            margin-right: var(--left-icons-gap);
+            transform: translate(var(--left-icon-shift-x), var(--left-icon-shift-y)) scale(var(--left-icon-scale));
+            transform-origin: right center;
+        }
+        .icons-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: var(--icons-inner-gap);
+            margin-left: var(--icons-gap);
+            transform: translate(var(--icon-shift-x), var(--icon-shift-y)) scale(var(--icon-scale));
+            transform-origin: left top;
+        }
+        .center-icons-layer {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) translate(var(--center-icons-shift-x), var(--center-icons-shift-y));
+            pointer-events: none;
+            z-index: 2;
+        }
+        .center-icons-layer .display-icon {
+            pointer-events: auto;
+        }
+        .display-icon:hover { opacity: 0.85; }
+        .icon-shape {
+            fill: var(--led-off);
+            transition: fill 0.1s;
+        }
+        .icon-shape.on { fill: var(--led-on); }
+        .preview-mode .display-icon { cursor: default; }
+        .preview-mode .display-icon:hover { opacity: 1; }
+        .preview-mode .icon-shape { fill: var(--bg-color); }
+        .preview-mode .icon-shape.on { fill: var(--led-on); }
+        .icon-left-loading .loading-body { fill: var(--loading-body-off); }
+        .icon-left-loading .loading-dot { fill: var(--loading-dot-off); }
+        .icon-left-loading .loading-body.on { fill: var(--loading-body-on); }
+        .icon-left-loading .loading-dot.on { fill: var(--loading-dot-on); }
+        .icon-left-loading:hover .loading-body,
+        .icon-left-loading:hover .loading-dot {
+            filter: brightness(0.7);
+        }
+        .icon-left-accucheck .accucheck-body { fill: var(--accucheck-body-off); }
+        .icon-left-accucheck .accucheck-mark { fill: var(--accucheck-mark-off); }
+        .icon-left-accucheck .accucheck-body.on { fill: var(--accucheck-body-on); }
+        .icon-left-accucheck .accucheck-mark.on { fill: var(--accucheck-mark-on); }
+        .icon-left-accucheck:hover .accucheck-body,
+        .icon-left-accucheck:hover .accucheck-mark {
+            filter: brightness(0.7);
+        }
+        .preview-mode .icon-left-loading .loading-body:not(.on),
+        .preview-mode .icon-left-loading .loading-dot:not(.on),
+        .preview-mode .icon-left-accucheck .accucheck-body:not(.on),
+        .preview-mode .icon-left-accucheck .accucheck-mark:not(.on) {
+            fill: var(--bg-color);
+            filter: none;
+        }
+
+        /* 編輯控制列 */
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #3a3a3a;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .control-group { display: flex; align-items: center; gap: 10px; }
+        .beeper-switch {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+        .beeper-switch input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--secondary);
+            cursor: pointer;
+        }
+        input[type="number"] {
+            width: 70px;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background: #222;
+            color: white;
+            font-size: 16px;
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .btn-add { background-color: var(--secondary); color: #000; }
+        .btn-add:hover { background-color: #ffca28; }
+        .btn-save { background-color: var(--primary); color: white; }
+        .btn-save:hover { background-color: var(--primary-hover); }
+        .btn-play { background-color: var(--primary); color: white; width: 100px; }
+        .btn-edit { background-color: #555; color: white; }
+
+        /* 時間軸區塊 */
+        .timeline-container {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            min-height: 100px;
+            display: flex;
+            gap: 15px;
+            overflow-x: auto;
+        }
+        .frame-thumb {
+            background: var(--bg-color);
+            border: 2px solid #444;
+            border-radius: 4px;
+            padding: 10px;
+            min-width: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            cursor: grab;
+            user-select: none;
+            transition: border-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+        }
+        .frame-thumb.dragging {
+            opacity: 0.45;
+            transform: scale(0.98);
+            cursor: grabbing;
+        }
+        .frame-thumb.drag-over {
+            border-color: var(--secondary);
+        }
+        .frame-thumb .display-mini {
+            width: 150px;
+            height: 84px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 8px;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .frame-thumb .display-mini .display-line {
+            transform: scale(0.2);
+            transform-origin: center center;
+        }
+        .frame-thumb .duration-badge {
+            background: #444; font-size: 12px; padding: 2px 6px; border-radius: 4px;
+        }
+        .frame-thumb .beeper-badge {
+            margin-top: 6px;
+            background: #2f2f2f;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #cfcfcf;
+        }
+        .frame-thumb .icons-badge {
+            margin-top: 4px;
+            background: #2b2b2b;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #bdbdbd;
+        }
+        .frame-thumb .delete-btn {
+            position: absolute; top: -8px; right: -8px; background: red; color: white;
+            border-radius: 50%; width: 20px; height: 20px; font-size: 12px;
+            display: flex; justify-content: center; align-items: center; cursor: pointer;
+        }
+        .empty-timeline { color: #777; width: 100%; text-align: center; margin-top: 30px; }
+
+        /* 隱藏區塊用 */
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="header">
+        <h1 id="view-title">Edit Mode</h1>
+        <button id="btn-toggle-view" class="btn-save">Switch to Preview (Save & Preview)</button>
+    </div>
+
+    <div id="main-display" class="display-board anchor-right"></div>
+
+    <div id="editor-controls" class="controls">
+        <div class="control-group">
+            <button id="btn-clear" style="background:#555; color:white;">Clear Canvas</button>
+            <label class="beeper-switch" for="input-beeper">
+                <input type="checkbox" id="input-beeper">
+                <span>Beeper</span>
+            </label>
+        </div>
+        <div class="control-group">
+            <label>Duration:</label>
+            <input type="number" id="input-duration" value="0.5" step="0.1" min="0.1">
+            <span>s</span>
+            <button id="btn-add-frame" class="btn-add">➕ Save as Frame</button>
+        </div>
+    </div>
+
+    <div id="preview-controls" class="controls hidden" style="justify-content: center; gap: 20px;">
+        <button id="btn-play-pause" class="btn-play">▶</button>
+        <button id="btn-stop" class="btn-edit">⏹</button>
+    </div>
+
+    <div id="timeline-section">
+        <h3 style="margin-top: 0; font-size: 16px; color: #aaa;">Timeline</h3>
+        <div id="timeline" class="timeline-container">
+            <div class="empty-timeline">No frames yet. Edit above and click "Save as Frame".</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 定義 7 段顯示器的 SVG 路徑 (以 A-G 順序排列)
+    // A:上, B:右上, C:右下, D:下, E:左下, F:左上, G:中
+    const segmentPaths = [
+        "M25.81,7.69l5.66-5.98c-1.15-1.11-2.63-1.72-4.16-1.72H8.46c-1.46,0-2.87.55-3.99,1.56l5.42,6.13h15.92Z", // A
+        "M29.01,45.94l-3.39-3.83.89-33.62,5.66-5.98c.97,1.29,1.48,2.93,1.43,4.6l-.93,34.97-3.66,3.86Z", // B
+        "M32.37,51.33l-3.39-3.83-3.66,3.86-.89,33.62,5.42,6.13c.96-1.19,1.52-2.71,1.57-4.3l.95-35.47Z", // C
+        "M2.13,91.71l5.66-5.98h15.92l5.42,6.13c-1.12,1.01-2.54,1.56-3.99,1.56H6.29c-1.53,0-3.01-.61-4.16-1.72", // D
+        "M4.59,47.49l-3.66,3.86L0,86.32c-.05,1.67.45,3.31,1.43,4.6l5.66-5.98.89-33.62-3.39-3.83Z", // E
+        "M4.62,45.94l-3.39-3.83L2.17,6.63c.05-1.59.6-3.11,1.57-4.3l5.42,6.13-.89,33.62-3.66,3.86Z", // F
+        "M24.62,50.56L28.28,46.7l-3.38-3.83H8.97l-3.65,3.86,3.38,3.83h15.92Z"  // G
+    ];
+    const iconDefinitions = {
+        leftLoading: {
+            label: "LOADING",
+            viewBox: "0 0 25.5 25.5",
+            loadingPaths: {
+                body: "M12.75,0C5.71,0,0,5.71,0,12.75s5.71,12.75,12.75,12.75,12.75-5.71,12.75-12.75S19.8,0,12.75,0",
+                dots: [
+                    "M6.31,15.41c-1.47,0-2.66-1.19-2.66-2.66s1.19-2.66,2.66-2.66,2.66,1.19,2.66,2.66-1.19,2.66-2.66,2.66",
+                    "M12.75,15.41c-1.47,0-2.66-1.19-2.66-2.66s1.19-2.66,2.66-2.66,2.66,1.19,2.66,2.66-1.19,2.66-2.66,2.66",
+                    "M19.19,15.41c-1.47,0-2.66-1.19-2.66-2.66s1.19-2.66,2.66-2.66,2.66,1.19,2.66,2.66-1.19,2.66-2.66,2.66"
+                ]
+            }
+        },
+        leftAccucheck: {
+            label: "ACCUCHECK",
+            viewBox: "0 0 25.5 25.5",
+            accucheckPaths: {
+                body: "M12.75,0h0C5.71,0,0,5.71,0,12.75s5.71,12.75,12.75,12.75,12.75-5.71,12.75-12.75S19.8,0,12.75,0",
+                mark: "M20.24,9.32l-7.96,9.01c-.62.7-1.7.73-2.36.07l-4.58-4.59c-.64-.64-.64-1.67,0-2.3.64-.64,1.67-.64,2.3,0l3.35,3.36,6.81-7.71c.6-.67,1.63-.74,2.3-.14.67.6.74,1.62.14,2.3"
+            }
+        },
+        leftLowbattery: {
+            label: "LOWBATTERY",
+            viewBox: "0 0 20.25 9.74",
+            path: "M19.58,3.06h-.86v-1.52c0-.85-.69-1.54-1.54-1.54H1.54C.69,0,0,.69,0,1.54v6.65c0,.85.69,1.54,1.54,1.54h15.63c.85,0,1.54-.69,1.54-1.54v-1.52h.86c.37,0,.67-.3.67-.67v-2.27c0-.37-.3-.67-.67-.67M17.31,8.19c0,.07-.06.13-.13.13H3.77l1.27-6.91h12.13c.07,0,.13.06.13.13v6.65Z"
+        },
+        centerDot: {
+            label: "DOT",
+            viewBox: "0 0 5.58 5.58",
+            path: "M5.58,2.79c0-1.54-1.25-2.79-2.79-2.79S0,1.25,0,2.79s1.25,2.79,2.79,2.79,2.79-1.25,2.79-2.79"
+        },
+        rightBle: {
+            label: "BLE",
+            viewBox: "0 0 10.05 16.92",
+            path: "M3.91,15.78v-5.04c0-.14-.17-.22-.27-.12l-2.09,1.82c-.4.35-1,.3-1.35-.09-.29-.33-.25-.83.08-1.12l3.04-2.65c.08-.07.08-.18,0-.25L.27,5.69c-.33-.29-.36-.79-.08-1.12.35-.4.95-.44,1.35-.09l2.09,1.82c.11.09.27.02.27-.12V1.14c0-.97,1.15-1.5,1.88-.86l3.87,3.37c.52.45.52,1.26,0,1.71l-3.41,2.97c-.08.07-.08.18,0,.25l3.41,2.97c.52.45.52,1.26,0,1.71l-3.87,3.37c-.73.64-1.88.12-1.88-.86M5.65,10.74v3.33c0,.14.17.22.27.12l1.91-1.66c.08-.07.08-.18,0-.25l-1.91-1.67c-.11-.09-.27-.02-.27.12M5.65,2.85v3.33c0,.14.17.22.27.12l1.91-1.66c.08-.07.08-.18,0-.25l-1.91-1.66c-.11-.09-.27-.02-.27.12"
+        },
+        rightArchive: {
+            label: "ARCHIVE",
+            viewBox: "0 0 13.94 17.11",
+            paths: [
+                "M11.71,17.11H2.23c-1.23,0-2.23-1-2.23-2.23V2.23C0,1,1,0,2.23,0h9.49c1.23,0,2.23,1,2.23,2.23v12.65c0,1.23-1,2.23-2.23,2.23M2.23,1.92c-.17,0-.31.14-.31.31v12.65c0,.17.14.31.31.31h9.49c.17,0,.31-.14.31-.31V2.23c0-.17-.14-.31-.31-.31H2.23Z",
+                "M10,9.51H3.94c-.53,0-.96-.43-.96-.96s.43-.96.96-.96h6.06c.53,0,.96.43.96.96s-.43.96-.96.96",
+                "M10,5.97H3.94c-.53,0-.96-.43-.96-.96s.43-.96.96-.96h6.06c.53,0,.96.43.96.96s-.43.96-.96.96",
+                "M10,13.05H3.94c-.53,0-.96-.43-.96-.96s.43-.96.96-.96h6.06c.53,0,.96.43.96.96s-.43.96-.96.96"
+            ]
+        },
+        rightKg: {
+            label: "KG",
+            viewBox: "0 0 16.97 20.17",
+            polygon: "2.28 0 2.28 8.5 5.15 4.37 7.84 4.37 4.71 8.59 8.2 15.84 5.44 15.84 3.16 10.72 2.28 11.89 2.28 15.84 0 15.84 0 0 2.28 0",
+            path: "M16.83,16.69c-.09.59-.29,1.14-.59,1.65-.3.51-.73.94-1.3,1.3-.57.35-1.33.53-2.28.53-.41,0-.82-.07-1.24-.21-.42-.14-.81-.36-1.15-.65-.35-.3-.64-.68-.87-1.14-.23-.47-.36-1.02-.39-1.67h2.26c.11.59.32,1,.62,1.23.31.23.67.34,1.07.34.64,0,1.11-.27,1.4-.8.29-.53.44-1.21.43-2.02v-1.51h-.03c-.25.61-.6,1.05-1.05,1.34-.45.29-.93.43-1.44.43-.62,0-1.15-.15-1.6-.45-.45-.3-.82-.72-1.11-1.24-.29-.52-.5-1.14-.63-1.84-.13-.7-.2-1.45-.2-2.23,0-.74.08-1.45.23-2.14.15-.69.38-1.29.68-1.82.3-.52.67-.94,1.12-1.25.44-.31.95-.46,1.53-.46.55,0,1.02.14,1.43.42.41.28.76.75,1.03,1.42h.03v-1.53h2.17v10.74c0,.46-.05.98-.14,1.58M13.71,12.87c.25-.18.45-.41.61-.71.16-.3.28-.63.36-1.01.08-.38.12-.77.12-1.19,0-.47-.03-.92-.1-1.34-.06-.42-.17-.79-.32-1.12-.15-.32-.35-.58-.59-.78-.25-.19-.56-.29-.93-.29-.32,0-.6.09-.83.27-.23.18-.42.42-.58.72-.15.3-.27.65-.34,1.04-.07.39-.1.8-.1,1.23s.03.82.09,1.23c.06.41.16.77.31,1.1.14.33.33.59.57.8.24.21.53.31.88.31.32,0,.6-.09.85-.27"
+        },
+        rightLb: {
+            label: "LB",
+            viewBox: "0 0 13.72 16.13",
+            rect: { width: "2.28", height: "15.84" },
+            path: "M7.64,0v5.77h.03c.28-.59.66-1.02,1.13-1.3.48-.27.97-.41,1.48-.41.42,0,.83.12,1.23.35.41.24.77.6,1.1,1.09.33.49.59,1.11.79,1.88.2.76.31,1.67.31,2.72s-.1,1.96-.31,2.72-.47,1.39-.79,1.87c-.33.49-.69.85-1.1,1.09-.41.24-.82.35-1.23.35-.61,0-1.15-.13-1.64-.4-.48-.27-.85-.72-1.09-1.35h-.03v1.46h-2.17V0h2.28ZM11.33,8.72c-.08-.44-.19-.84-.35-1.18-.16-.34-.36-.61-.6-.81-.24-.2-.53-.3-.87-.3s-.62.1-.87.3c-.25.2-.45.47-.61.81-.16.34-.28.73-.35,1.18-.08.44-.11.91-.11,1.4s.04.93.11,1.38c.07.44.19.84.35,1.18.16.34.36.61.61.81.24.2.53.3.87.3s.63-.1.87-.3c.24-.2.44-.47.6-.81.16-.34.28-.73.35-1.18.07-.44.11-.9.11-1.38s-.04-.95-.11-1.4"
+        }
+    };
+
+    // 系統狀態
+    let currentSegments = Array(4).fill().map(() => Array(7).fill(false)); // 當前畫板狀態 4個數字 x 7個段碼
+    let frames = []; // 儲存的影格
+    let isPreviewMode = false;
+    let isPlaying = false;
+    let playTimeout = null;
+    let currentFrameIndex = 0;
+    let currentBeeperOn = false;
+    let currentIcons = { leftLoading: false, leftAccucheck: false, leftLowbattery: false, centerDot: false, rightBle: false, rightArchive: false, rightKg: false, rightLb: false };
+    let audioContext = null;
+    let beeperOscillator = null;
+    let beeperGainNode = null;
+    let beeperStopTimeout = null;
+    let dragFromIndex = null;
+
+    // DOM 元素
+    const mainDisplay = document.getElementById('main-display');
+    const timeline = document.getElementById('timeline');
+    const viewTitle = document.getElementById('view-title');
+    const btnToggleView = document.getElementById('btn-toggle-view');
+    const editorControls = document.getElementById('editor-controls');
+    const previewControls = document.getElementById('preview-controls');
+    const timelineSection = document.getElementById('timeline-section');
+    const btnPlayPause = document.getElementById('btn-play-pause');
+    const inputBeeper = document.getElementById('input-beeper');
+
+    // 生成單個數字的 SVG HTML
+    function createDigitHTML(digitIndex, segmentsState, isMini = false) {
+        let svgContent = '';
+        segmentPaths.forEach((path, segIndex) => {
+            const isOn = segmentsState[segIndex] ? 'on' : '';
+            const onClickHandler = isMini ? '' : `onclick="toggleSegment(${digitIndex}, ${segIndex})"`;
+            svgContent += `<path d="${path}" class="segment ${isOn}" data-digit="${digitIndex}" data-seg="${segIndex}" ${onClickHandler}></path>`;
+        });
+        // 修正 viewBox 使縮放比例一致
+        return `<svg class="digit" viewBox="0 0 33.6 93.43" preserveAspectRatio="xMidYMid meet">${svgContent}</svg>`;
+    }
+
+    function iconKeyToCssToken(iconKey) {
+        return iconKey.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+    }
+
+    function createIconHTML(iconKey, isOn, isMini = false) {
+        const icon = iconDefinitions[iconKey];
+        if (!icon) return '';
+        const onClass = isOn ? 'on' : '';
+        const onClickHandler = isMini ? '' : `onclick="toggleIcon('${iconKey}')"`;
+        const cssToken = iconKeyToCssToken(iconKey);
+        const iconClass = `icon-${cssToken}`;
+        const inlineStyle = [
+            `width: var(--icon-${cssToken}-width, 44px)`,
+            `height: var(--icon-${cssToken}-height, 56px)`,
+            `transform: translate(var(--icon-${cssToken}-shift-x, 0px), var(--icon-${cssToken}-shift-y, 0px)) scale(var(--icon-${cssToken}-scale, 1))`
+        ].join('; ');
+        if (icon.loadingPaths) {
+            const dotsHtml = icon.loadingPaths.dots
+                .map(pathD => `<path class="loading-dot ${onClass}" d="${pathD}"></path>`)
+                .join('');
+            return `
+                <svg class="display-icon ${iconClass}" style="${inlineStyle}" viewBox="${icon.viewBox}" preserveAspectRatio="xMidYMid meet" ${onClickHandler}>
+                    <path class="loading-body ${onClass}" d="${icon.loadingPaths.body}"></path>
+                    ${dotsHtml}
+                </svg>
+            `;
+        }
+        if (icon.accucheckPaths) {
+            return `
+                <svg class="display-icon ${iconClass}" style="${inlineStyle}" viewBox="${icon.viewBox}" preserveAspectRatio="xMidYMid meet" ${onClickHandler}>
+                    <path class="accucheck-body ${onClass}" d="${icon.accucheckPaths.body}"></path>
+                    <path class="accucheck-mark ${onClass}" d="${icon.accucheckPaths.mark}"></path>
+                </svg>
+            `;
+        }
+        const rectHtml = icon.rect ? `<rect class="icon-shape ${onClass}" width="${icon.rect.width}" height="${icon.rect.height}"></rect>` : '';
+        const polygonHtml = icon.polygon ? `<polygon class="icon-shape ${onClass}" points="${icon.polygon}"></polygon>` : '';
+        const pathsHtml = icon.paths
+            ? icon.paths.map(pathD => `<path class="icon-shape ${onClass}" d="${pathD}"></path>`).join('')
+            : `<path class="icon-shape ${onClass}" d="${icon.path}"></path>`;
+        return `
+            <svg class="display-icon ${iconClass}" style="${inlineStyle}" viewBox="${icon.viewBox}" preserveAspectRatio="xMidYMid meet" ${onClickHandler}>
+                ${rectHtml}
+                ${polygonHtml}
+                ${pathsHtml}
+            </svg>
+        `;
+    }
+
+    function createLeftIconsHTML(iconsState, isMini = false) {
+        return `
+            <div class="icons-left">
+                ${createIconHTML('leftLoading', !!iconsState.leftLoading, isMini)}
+                ${createIconHTML('leftAccucheck', !!iconsState.leftAccucheck, isMini)}
+                ${createIconHTML('leftLowbattery', !!iconsState.leftLowbattery, isMini)}
+            </div>
+        `;
+    }
+
+    function createRightIconsHTML(iconsState, isMini = false) {
+        return `
+            <div class="icons-right">
+                ${createIconHTML('rightBle', !!iconsState.rightBle, isMini)}
+                ${createIconHTML('rightArchive', !!iconsState.rightArchive, isMini)}
+                ${createIconHTML('rightKg', !!iconsState.rightKg, isMini)}
+                ${createIconHTML('rightLb', !!iconsState.rightLb, isMini)}
+            </div>
+        `;
+    }
+
+    function createCenterIconsHTML(iconsState, isMini = false) {
+        return `
+            <div class="center-icons-layer">
+                ${createIconHTML('centerDot', !!iconsState.centerDot, isMini)}
+            </div>
+        `;
+    }
+
+    // 渲染主顯示器
+    function renderMainDisplay() {
+        mainDisplay.innerHTML = '';
+        const line = document.createElement('div');
+        line.className = 'display-line';
+        const row = document.createElement('div');
+        row.className = 'digits-row';
+        currentSegments.forEach((digitState, index) => {
+            row.innerHTML += createDigitHTML(index, digitState);
+        });
+        line.insertAdjacentHTML('beforeend', createLeftIconsHTML(currentIcons));
+        line.appendChild(row);
+        line.insertAdjacentHTML('beforeend', createCenterIconsHTML(currentIcons));
+        line.insertAdjacentHTML('beforeend', createRightIconsHTML(currentIcons));
+        mainDisplay.appendChild(line);
+    }
+
+    // 切換段碼亮滅 (由 SVG Path 的 onclick 觸發)
+    window.toggleSegment = function(digitIndex, segIndex) {
+        if (isPreviewMode) return;
+        currentSegments[digitIndex][segIndex] = !currentSegments[digitIndex][segIndex];
+        
+        // 僅更新被點擊的那個 path 的 class，提升效能
+        const pathElements = mainDisplay.querySelectorAll(`path[data-digit="${digitIndex}"]`);
+        if(currentSegments[digitIndex][segIndex]) {
+            pathElements[segIndex].classList.add('on');
+        } else {
+            pathElements[segIndex].classList.remove('on');
+        }
+    };
+
+    window.toggleIcon = function(iconKey) {
+        if (isPreviewMode) return;
+        if (!(iconKey in currentIcons)) return;
+        currentIcons[iconKey] = !currentIcons[iconKey];
+        renderMainDisplay();
+    };
+
+    // 儲存為影格
+    document.getElementById('btn-add-frame').addEventListener('click', () => {
+        const duration = parseFloat(document.getElementById('input-duration').value) || 0.5;
+        // 深拷貝當前狀態
+        const frameData = JSON.parse(JSON.stringify(currentSegments));
+        frames.push({
+            segments: frameData,
+            duration: duration,
+            beeper: currentBeeperOn,
+            icons: { ...currentIcons }
+        });
+        renderTimeline();
+    });
+
+    // 渲染下方時間軸
+    function renderTimeline() {
+        if (frames.length === 0) {
+            timeline.innerHTML = '<div class="empty-timeline">No frames yet. Edit above and click "Save as Frame".</div>';
+            return;
+        }
+        timeline.innerHTML = '';
+        frames.forEach((frame, index) => {
+            const frameIcons = {
+                leftLoading: !!(frame.icons && frame.icons.leftLoading),
+                leftAccucheck: !!(frame.icons && frame.icons.leftAccucheck),
+                leftLowbattery: !!(frame.icons && frame.icons.leftLowbattery),
+                centerDot: !!(frame.icons && frame.icons.centerDot),
+                rightBle: !!(frame.icons && frame.icons.rightBle),
+                rightArchive: !!(frame.icons && frame.icons.rightArchive),
+                rightKg: !!(frame.icons && frame.icons.rightKg),
+                rightLb: !!(frame.icons && frame.icons.rightLb)
+            };
+            let miniDigits = '<div class="digits-row">';
+            frame.segments.forEach(digitState => {
+                miniDigits += createDigitHTML(0, digitState, true); // id 不重要
+            });
+            miniDigits += '</div>';
+            const miniDisplay = `
+                <div class="display-mini">
+                    <div class="display-line">
+                        ${createLeftIconsHTML(frameIcons, true)}
+                        ${miniDigits}
+                        ${createCenterIconsHTML(frameIcons, true)}
+                        ${createRightIconsHTML(frameIcons, true)}
+                    </div>
+                </div>
+            `;
+
+            const frameHtml = `
+                <div class="frame-thumb" draggable="true" data-index="${index}">
+                    <div class="delete-btn" onclick="deleteFrame(${index})">✕</div>
+                    ${miniDisplay}
+                    <div class="duration-badge">${frame.duration}s</div>
+                    <div class="beeper-badge">🔔 ${frame.beeper ? 'ON' : 'OFF'}</div>
+                </div>
+            `;
+            timeline.innerHTML += frameHtml;
+        });
+
+        const thumbs = timeline.querySelectorAll('.frame-thumb');
+        thumbs.forEach((thumb) => {
+            thumb.addEventListener('dragstart', onFrameDragStart);
+            thumb.addEventListener('dragover', onFrameDragOver);
+            thumb.addEventListener('drop', onFrameDrop);
+            thumb.addEventListener('dragleave', onFrameDragLeave);
+            thumb.addEventListener('dragend', onFrameDragEnd);
+        });
+    }
+
+    function onFrameDragStart(event) {
+        if (event.target.closest('.delete-btn')) {
+            event.preventDefault();
+            return;
+        }
+        const thumb = event.currentTarget;
+        dragFromIndex = Number(thumb.dataset.index);
+        thumb.classList.add('dragging');
+        if (event.dataTransfer) {
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', String(dragFromIndex));
+        }
+    }
+
+    function onFrameDragOver(event) {
+        event.preventDefault();
+        const hoverIndex = Number(event.currentTarget.dataset.index);
+        if (hoverIndex === dragFromIndex) return;
+        event.currentTarget.classList.add('drag-over');
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    }
+
+    function onFrameDragLeave(event) {
+        event.currentTarget.classList.remove('drag-over');
+    }
+
+    function onFrameDrop(event) {
+        event.preventDefault();
+        const toIndex = Number(event.currentTarget.dataset.index);
+        event.currentTarget.classList.remove('drag-over');
+        if (dragFromIndex === null || Number.isNaN(toIndex) || dragFromIndex === toIndex) return;
+        const [movedFrame] = frames.splice(dragFromIndex, 1);
+        frames.splice(toIndex, 0, movedFrame);
+        dragFromIndex = null;
+        renderTimeline();
+    }
+
+    function onFrameDragEnd() {
+        timeline.querySelectorAll('.frame-thumb').forEach((thumb) => {
+            thumb.classList.remove('dragging', 'drag-over');
+        });
+        dragFromIndex = null;
+    }
+
+    // 刪除影格
+    window.deleteFrame = function(index) {
+        frames.splice(index, 1);
+        renderTimeline();
+    };
+
+    // 清除畫板
+    document.getElementById('btn-clear').addEventListener('click', () => {
+        currentSegments = Array(4).fill().map(() => Array(7).fill(false));
+        currentIcons = { leftLoading: false, leftAccucheck: false, leftLowbattery: false, centerDot: false, rightBle: false, rightArchive: false, rightKg: false, rightLb: false };
+        currentBeeperOn = false;
+        inputBeeper.checked = false;
+        renderMainDisplay();
+    });
+
+    inputBeeper.addEventListener('change', (event) => {
+        currentBeeperOn = event.target.checked;
+    });
+
+    // 切換 編輯 / 預覽 模式
+    btnToggleView.addEventListener('click', () => {
+        if (frames.length === 0 && !isPreviewMode) {
+            alert("Please save at least one frame before previewing.");
+            return;
+        }
+
+        isPreviewMode = !isPreviewMode;
+        if (isPreviewMode) {
+            // 進入預覽
+            viewTitle.innerText = "Preview Mode";
+            btnToggleView.innerText = "Back to Edit";
+            mainDisplay.classList.add('preview-mode');
+            editorControls.classList.add('hidden');
+            timelineSection.classList.add('hidden');
+            previewControls.classList.remove('hidden');
+            
+            // 初始化預覽狀態
+            stopPlayback();
+            loadFrameToDisplay(0);
+        } else {
+            // 返回編輯
+            viewTitle.innerText = "Edit Mode";
+            btnToggleView.innerText = "Switch to Preview (Save & Preview)";
+            mainDisplay.classList.remove('preview-mode');
+            editorControls.classList.remove('hidden');
+            timelineSection.classList.remove('hidden');
+            previewControls.classList.add('hidden');
+            
+            stopPlayback();
+            renderMainDisplay(); // 恢復編輯中的狀態
+        }
+    });
+
+    // 預覽播放邏輯
+    function loadFrameToDisplay(index) {
+        if(!frames[index]) return;
+        const frame = frames[index];
+        const frameIcons = {
+            leftLoading: !!(frame.icons && frame.icons.leftLoading),
+            leftAccucheck: !!(frame.icons && frame.icons.leftAccucheck),
+            leftLowbattery: !!(frame.icons && frame.icons.leftLowbattery),
+            centerDot: !!(frame.icons && frame.icons.centerDot),
+            rightBle: !!(frame.icons && frame.icons.rightBle),
+            rightArchive: !!(frame.icons && frame.icons.rightArchive),
+            rightKg: !!(frame.icons && frame.icons.rightKg),
+            rightLb: !!(frame.icons && frame.icons.rightLb)
+        };
+        mainDisplay.innerHTML = '';
+        const line = document.createElement('div');
+        line.className = 'display-line';
+        const row = document.createElement('div');
+        row.className = 'digits-row';
+        frame.segments.forEach(digitState => {
+            row.innerHTML += createDigitHTML(0, digitState, true);
+        });
+        line.insertAdjacentHTML('beforeend', createLeftIconsHTML(frameIcons, true));
+        line.appendChild(row);
+        line.insertAdjacentHTML('beforeend', createCenterIconsHTML(frameIcons, true));
+        line.insertAdjacentHTML('beforeend', createRightIconsHTML(frameIcons, true));
+        mainDisplay.appendChild(line);
+    }
+
+    function playNextFrame() {
+        if (!isPlaying) return;
+        
+        loadFrameToDisplay(currentFrameIndex);
+        const currentFrame = frames[currentFrameIndex];
+        const durationMs = currentFrame.duration * 1000;
+        playBeeperForFrame(currentFrame);
+        
+        playTimeout = setTimeout(() => {
+            currentFrameIndex++;
+            if (currentFrameIndex >= frames.length) {
+                currentFrameIndex = 0; // 循環播放
+            }
+            playNextFrame();
+        }, durationMs);
+    }
+
+    btnPlayPause.addEventListener('click', () => {
+        if (isPlaying) {
+            // 執行暫停
+            isPlaying = false;
+            clearTimeout(playTimeout);
+            stopBeeper();
+            btnPlayPause.innerText = "▶";
+            btnPlayPause.style.backgroundColor = "var(--primary)";
+        } else {
+            // 執行播放
+            isPlaying = true;
+            btnPlayPause.innerText = "⏸";
+            btnPlayPause.style.backgroundColor = "#FF9800"; // 變成橘色
+            playNextFrame();
+        }
+    });
+
+    document.getElementById('btn-stop').addEventListener('click', stopPlayback);
+
+    function stopPlayback() {
+        isPlaying = false;
+        clearTimeout(playTimeout);
+        stopBeeper();
+        currentFrameIndex = 0;
+        btnPlayPause.innerText = "▶";
+        btnPlayPause.style.backgroundColor = "var(--primary)";
+        if(frames.length > 0) loadFrameToDisplay(0);
+    }
+
+    function ensureAudioContext() {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return false;
+        if (!audioContext) {
+            audioContext = new AudioCtx();
+        }
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+        return true;
+    }
+
+    function stopBeeper() {
+        clearTimeout(beeperStopTimeout);
+        beeperStopTimeout = null;
+
+        if (beeperOscillator) {
+            try {
+                beeperOscillator.stop();
+            } catch (error) {
+                // Oscillator may already be stopped.
+            }
+            beeperOscillator.disconnect();
+            beeperOscillator = null;
+        }
+
+        if (beeperGainNode) {
+            beeperGainNode.disconnect();
+            beeperGainNode = null;
+        }
+    }
+
+    function playBeeperForFrame(frame) {
+        stopBeeper();
+        if (!frame || !frame.beeper) return;
+
+        if (!ensureAudioContext()) return;
+        const durationMs = Math.max(0, frame.duration * 1000);
+        if (durationMs === 0) return;
+
+        beeperOscillator = audioContext.createOscillator();
+        beeperGainNode = audioContext.createGain();
+        beeperOscillator.type = 'square';
+        beeperOscillator.frequency.value = 3000;
+        beeperGainNode.gain.value = 0.08;
+        beeperOscillator.connect(beeperGainNode);
+        beeperGainNode.connect(audioContext.destination);
+        beeperOscillator.start();
+
+        beeperStopTimeout = setTimeout(() => {
+            stopBeeper();
+        }, durationMs);
+    }
+
+    // 初始渲染
+    renderMainDisplay();
+    renderTimeline();
+
+</script>
+</body>
+</html>
