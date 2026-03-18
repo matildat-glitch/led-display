@@ -366,6 +366,9 @@
         .frame-thumb.drag-over {
             border-color: var(--secondary);
         }
+        .frame-thumb.selected {
+            border-color: var(--secondary);
+        }
         .frame-thumb .display-mini {
             width: 150px;
             height: 84px;
@@ -443,8 +446,8 @@
         }
         .animation-card .delete-btn {
             position: absolute;
-            top: -8px;
-            right: -8px;
+            top: -9px;
+            right: -9px;
             background: red;
             color: white;
             border-radius: 50%;
@@ -456,6 +459,31 @@
             align-items: center;
             cursor: pointer;
             z-index: 1;
+        }
+        .animation-card .duplicate-btn {
+            position: absolute;
+            top: 50px;
+            right: -9px;
+            transform: none;
+            width: 20px;
+            height: 20px;
+            padding: 0;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            background: #fff;
+            color: #111;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 2;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+        }
+        .animation-card .duplicate-btn:hover {
+            background: #f1f1f1;
         }
 
         /* 隱藏區塊用 */
@@ -620,6 +648,7 @@
     let beeperGainNode = null;
     let beeperStopTimeout = null;
     let dragFromIndex = null;
+    let selectedFrameIndex = null; // Edit mode timeline currently selected frame
     let isExportingVideo = false;
     const EXPORT_FRAME_RATE = 30;
     const EXPORT_MIME_TYPES = [
@@ -646,6 +675,7 @@
     const btnStop = document.getElementById('btn-stop');
     const btnDownload = document.getElementById('btn-download');
     const inputBeeper = document.getElementById('input-beeper');
+    const inputDuration = document.getElementById('input-duration');
 
     // 生成單個數字的 SVG HTML
     function createDigitHTML(digitIndex, segmentsState, isMini = false) {
@@ -800,7 +830,19 @@
         currentIcons = getFrameIcons(frame);
         currentBeeperOn = !!frame.beeper;
         inputBeeper.checked = currentBeeperOn;
+        inputDuration.value = Number(frame.duration) || 0.5;
         renderMainDisplay();
+    }
+
+    function toggleTimelineSelection(index) {
+        if (selectedFrameIndex === index) {
+            selectedFrameIndex = null;
+            renderTimeline();
+            return;
+        }
+        selectedFrameIndex = index;
+        loadEditorStateFromFrame(frames[index]);
+        renderTimeline();
     }
 
     // 渲染主顯示器
@@ -843,27 +885,39 @@
 
     // 儲存為影格
     document.getElementById('btn-add-frame').addEventListener('click', () => {
-        const duration = parseFloat(document.getElementById('input-duration').value) || 0.5;
+        const duration = parseFloat(inputDuration.value) || 0.5;
         const frameData = JSON.parse(JSON.stringify(currentSegments));
-        frames.push({
+        const newFrame = {
             segments: frameData,
             duration,
             beeper: currentBeeperOn,
             icons: { ...currentIcons }
-        });
+        };
+        if (selectedFrameIndex !== null && frames[selectedFrameIndex]) {
+            const insertIndex = selectedFrameIndex + 1;
+            frames.splice(insertIndex, 0, newFrame);
+            selectedFrameIndex = insertIndex;
+        } else {
+            frames.push(newFrame);
+            selectedFrameIndex = null;
+        }
         renderTimeline();
     });
 
     // 渲染下方時間軸
     function renderTimeline() {
+        if (selectedFrameIndex !== null && !frames[selectedFrameIndex]) {
+            selectedFrameIndex = null;
+        }
         if (frames.length === 0) {
+            selectedFrameIndex = null;
             timeline.innerHTML = '<div class="empty-timeline">No frames yet. Edit above and click "Save as Frame".</div>';
             return;
         }
         timeline.innerHTML = '';
         frames.forEach((frame, index) => {
             const frameHtml = `
-                <div class="frame-thumb" draggable="true" data-index="${index}">
+                <div class="frame-thumb ${index === selectedFrameIndex ? 'selected' : ''}" draggable="true" data-index="${index}">
                     <div class="delete-btn" onclick="deleteFrame(${index})">✕</div>
                     ${buildMiniDisplayHtml(frame)}
                     <div class="duration-badge">${frame.duration}s</div>
@@ -880,6 +934,11 @@
             thumb.addEventListener('drop', onFrameDrop);
             thumb.addEventListener('dragleave', onFrameDragLeave);
             thumb.addEventListener('dragend', onFrameDragEnd);
+            thumb.addEventListener('click', (event) => {
+                if (event.target.closest('.delete-btn')) return;
+                const index = Number(thumb.dataset.index);
+                if (!Number.isNaN(index)) toggleTimelineSelection(index);
+            });
         });
     }
 
@@ -901,9 +960,13 @@
         animations.forEach((animation, index) => {
             const firstFrame = animation.frames[0];
             const totalDuration = getAnimationDuration(animation).toFixed(1);
+            const duplicateBtnHtml = index === activeAnimationIndex
+                ? `<button class="duplicate-btn" data-animation-duplicate="${index}" title="Duplicate animation">+</button>`
+                : '';
             const cardHtml = `
                 <div class="animation-card ${index === activeAnimationIndex ? 'active' : ''}" data-animation-index="${index}">
                     <div class="delete-btn" data-animation-delete="${index}">✕</div>
+                    ${duplicateBtnHtml}
                     ${firstFrame ? buildMiniDisplayHtml(firstFrame) : '<div class="empty-timeline" style="margin-top: 10px;">Empty</div>'}
                     <div class="duration-badge">${totalDuration}s</div>
                 </div>
@@ -917,6 +980,13 @@
                 if (deleteBtn) {
                     const index = Number(deleteBtn.dataset.animationDelete);
                     if (!Number.isNaN(index)) deleteAnimation(index);
+                    event.stopPropagation();
+                    return;
+                }
+                const duplicateBtn = event.target.closest('[data-animation-duplicate]');
+                if (duplicateBtn) {
+                    const index = Number(duplicateBtn.dataset.animationDuplicate);
+                    if (!Number.isNaN(index)) duplicateAnimation(index);
                     event.stopPropagation();
                     return;
                 }
@@ -960,6 +1030,17 @@
         if (dragFromIndex === null || Number.isNaN(toIndex) || dragFromIndex === toIndex) return;
         const [movedFrame] = frames.splice(dragFromIndex, 1);
         frames.splice(toIndex, 0, movedFrame);
+
+        if (selectedFrameIndex === dragFromIndex) {
+            selectedFrameIndex = toIndex;
+        } else if (selectedFrameIndex !== null) {
+            if (dragFromIndex < selectedFrameIndex && toIndex >= selectedFrameIndex) {
+                selectedFrameIndex -= 1;
+            } else if (dragFromIndex > selectedFrameIndex && toIndex <= selectedFrameIndex) {
+                selectedFrameIndex += 1;
+            }
+        }
+
         dragFromIndex = null;
         renderTimeline();
     }
@@ -974,6 +1055,11 @@
     // 刪除影格
     window.deleteFrame = function(index) {
         frames.splice(index, 1);
+        if (selectedFrameIndex === index) {
+            selectedFrameIndex = null;
+        } else if (selectedFrameIndex !== null && index < selectedFrameIndex) {
+            selectedFrameIndex -= 1;
+        }
         renderTimeline();
     };
 
@@ -983,6 +1069,7 @@
         activeAnimationIndex = index;
         editingAnimationIndex = index;
         frames = cloneFrames(animations[index].frames);
+        selectedFrameIndex = null;
         currentFrameIndex = 0;
         if (frames.length > 0) {
             loadFrameToDisplay(0);
@@ -1011,13 +1098,33 @@
             if (animations.length === 0) {
                 activeAnimationIndex = null;
                 frames = [];
+                selectedFrameIndex = null;
                 mainDisplay.innerHTML = '';
             } else {
                 const nextIndex = Math.min(index, animations.length - 1);
                 activeAnimationIndex = nextIndex;
                 frames = cloneFrames(animations[nextIndex].frames);
+                selectedFrameIndex = null;
                 if (frames.length > 0) loadFrameToDisplay(0);
             }
+        }
+        renderPreviewAnimations();
+    }
+
+    function duplicateAnimation(index) {
+        if (!animations[index]) return;
+        stopPlayback();
+        const duplicated = { frames: cloneFrames(animations[index].frames) };
+        animations.splice(index + 1, 0, duplicated);
+        activeAnimationIndex = index + 1;
+        editingAnimationIndex = activeAnimationIndex;
+        frames = cloneFrames(duplicated.frames);
+        selectedFrameIndex = null;
+        currentFrameIndex = 0;
+        if (frames.length > 0) {
+            loadFrameToDisplay(0);
+        } else {
+            mainDisplay.innerHTML = '';
         }
         renderPreviewAnimations();
     }
@@ -1039,6 +1146,7 @@
     function enterPreviewMode() {
         const activeAnimation = getActiveAnimation();
         frames = cloneFrames(activeAnimation ? activeAnimation.frames : []);
+        selectedFrameIndex = null;
 
         isPreviewMode = true;
         viewTitle.innerText = "Preview Mode";
@@ -1076,6 +1184,7 @@
 
         stopPlayback();
         renderTimeline();
+        selectedFrameIndex = null;
         if (frames.length > 0) {
             loadEditorStateFromFrame(frames[0]);
         } else {
@@ -1087,6 +1196,7 @@
         stopPlayback();
         editingAnimationIndex = null;
         frames = [];
+        selectedFrameIndex = null;
         enterEditMode();
     }
 
@@ -1111,9 +1221,11 @@
             if (activeAnimation) {
                 editingAnimationIndex = activeAnimationIndex;
                 frames = cloneFrames(activeAnimation.frames);
+                selectedFrameIndex = null;
             } else {
                 editingAnimationIndex = null;
                 frames = [];
+                selectedFrameIndex = null;
             }
             enterEditMode();
         }
