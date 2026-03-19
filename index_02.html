@@ -424,6 +424,13 @@
         .animation-card.active {
             border-color: var(--secondary);
         }
+        .animation-card.dragging {
+            opacity: 0.45;
+            transform: scale(0.98);
+        }
+        .animation-card.drag-over {
+            border-color: var(--secondary);
+        }
         .animation-card .display-mini {
             width: 150px;
             height: 84px;
@@ -648,6 +655,7 @@
     let beeperGainNode = null;
     let beeperStopTimeout = null;
     let dragFromIndex = null;
+    let animationDragFromIndex = null;
     let selectedFrameIndex = null; // Edit mode timeline currently selected frame
     let isExportingVideo = false;
     const EXPORT_FRAME_RATE = 30;
@@ -964,7 +972,7 @@
                 ? `<button class="duplicate-btn" data-animation-duplicate="${index}" title="Duplicate animation">+</button>`
                 : '';
             const cardHtml = `
-                <div class="animation-card ${index === activeAnimationIndex ? 'active' : ''}" data-animation-index="${index}">
+                <div class="animation-card ${index === activeAnimationIndex ? 'active' : ''}" draggable="true" data-animation-index="${index}">
                     <div class="delete-btn" data-animation-delete="${index}">✕</div>
                     ${duplicateBtnHtml}
                     ${firstFrame ? buildMiniDisplayHtml(firstFrame) : '<div class="empty-timeline" style="margin-top: 10px;">Empty</div>'}
@@ -975,6 +983,11 @@
         });
 
         previewAnimations.querySelectorAll('.animation-card').forEach((card) => {
+            card.addEventListener('dragstart', onAnimationDragStart);
+            card.addEventListener('dragover', onAnimationDragOver);
+            card.addEventListener('drop', onAnimationDrop);
+            card.addEventListener('dragleave', onAnimationDragLeave);
+            card.addEventListener('dragend', onAnimationDragEnd);
             card.addEventListener('click', (event) => {
                 const deleteBtn = event.target.closest('[data-animation-delete]');
                 if (deleteBtn) {
@@ -995,6 +1008,72 @@
             });
         });
         updatePreviewControlState();
+    }
+
+    function remapMovedIndex(index, fromIndex, toIndex) {
+        if (index === null) return null;
+        if (index === fromIndex) return toIndex;
+        if (fromIndex < index && toIndex >= index) return index - 1;
+        if (fromIndex > index && toIndex <= index) return index + 1;
+        return index;
+    }
+
+    function onAnimationDragStart(event) {
+        if (event.target.closest('[data-animation-delete]') || event.target.closest('[data-animation-duplicate]')) {
+            event.preventDefault();
+            return;
+        }
+        const card = event.currentTarget;
+        animationDragFromIndex = Number(card.dataset.animationIndex);
+        card.classList.add('dragging');
+        if (event.dataTransfer) {
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', String(animationDragFromIndex));
+        }
+    }
+
+    function onAnimationDragOver(event) {
+        event.preventDefault();
+        const hoverIndex = Number(event.currentTarget.dataset.animationIndex);
+        if (hoverIndex === animationDragFromIndex) return;
+        event.currentTarget.classList.add('drag-over');
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    }
+
+    function onAnimationDragLeave(event) {
+        event.currentTarget.classList.remove('drag-over');
+    }
+
+    function onAnimationDrop(event) {
+        event.preventDefault();
+        const toIndex = Number(event.currentTarget.dataset.animationIndex);
+        event.currentTarget.classList.remove('drag-over');
+        if (animationDragFromIndex === null || Number.isNaN(toIndex) || animationDragFromIndex === toIndex) return;
+
+        stopPlayback();
+        const [movedAnimation] = animations.splice(animationDragFromIndex, 1);
+        animations.splice(toIndex, 0, movedAnimation);
+        activeAnimationIndex = remapMovedIndex(activeAnimationIndex, animationDragFromIndex, toIndex);
+        editingAnimationIndex = remapMovedIndex(editingAnimationIndex, animationDragFromIndex, toIndex);
+
+        if (activeAnimationIndex !== null && animations[activeAnimationIndex]) {
+            frames = cloneFrames(animations[activeAnimationIndex].frames);
+            currentFrameIndex = 0;
+            if (frames.length > 0) loadFrameToDisplay(0);
+        } else {
+            frames = [];
+            mainDisplay.innerHTML = '';
+        }
+
+        animationDragFromIndex = null;
+        renderPreviewAnimations();
+    }
+
+    function onAnimationDragEnd() {
+        previewAnimations.querySelectorAll('.animation-card').forEach((card) => {
+            card.classList.remove('dragging', 'drag-over');
+        });
+        animationDragFromIndex = null;
     }
 
     function onFrameDragStart(event) {
